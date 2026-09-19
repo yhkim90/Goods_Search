@@ -6,6 +6,13 @@ const BASE = (() => {
   return "./";
 })();
 
+const PRODUCT_ORDER = ["sp-800a", "sp-800"];
+
+function productRank(productId) {
+  const index = PRODUCT_ORDER.indexOf(productId);
+  return index === -1 ? PRODUCT_ORDER.length : index;
+}
+
 const STATUS_LABEL = {
   ok: "정상",
   partial: "일부",
@@ -104,6 +111,7 @@ function render(data) {
 
   listingItems
     .filter((item) => item.isNew)
+    .sort((a, b) => productRank(a.productId) - productRank(b.productId))
     .slice(0, 2)
     .forEach((item) => {
       alerts.push(
@@ -121,6 +129,7 @@ function render(data) {
 
   eventItems
     .filter((item) => item.type === "PRICE_DROP")
+    .sort((a, b) => productRank(a.productId) - productRank(b.productId))
     .slice(0, 2)
     .forEach((item) => {
       alerts.push(
@@ -140,7 +149,7 @@ function render(data) {
   alertStack.innerHTML = alerts.join("");
 
   const priceStack = document.getElementById("price-stack");
-  priceStack.innerHTML = ["sp-800", "sp-800a"]
+  priceStack.innerHTML = PRODUCT_ORDER
     .map((productId) => {
       const product = productMap[productId];
       const best = lowestByProduct(priceItems, productId);

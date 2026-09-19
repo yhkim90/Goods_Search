@@ -1,16 +1,16 @@
 {
   "products": [
     {
-      "id": "sp-800",
-      "name": "SP-800",
-      "officialPrice": 1500000,
-      "aliases": ["SP-800", "SP800", "SP 800"]
-    },
-    {
       "id": "sp-800a",
       "name": "SP-800A",
       "officialPrice": 1650000,
       "aliases": ["SP-800A", "SP800A", "SP 800A", "SP-800 A"]
+    },
+    {
+      "id": "sp-800",
+      "name": "SP-800",
+      "officialPrice": 1500000,
+      "aliases": ["SP-800", "SP800", "SP 800"]
     }
   ],
   "excludeKeywords": [
