@@ -72,7 +72,7 @@ function emptyState() {
     <article class="card">
       <div class="card-kicker">GOODS SEARCH</div>
       <h2>상품을 검색하세요</h2>
-      <p class="muted">상품명을 입력한 뒤 검색을 누르면 신품 최저가 업체와 당근 매물을 탭으로 나눠 보여줍니다.</p>
+      <p class="muted">상품명을 입력하면 등록된 쇼핑몰을 직접 열어 최저가 5곳과 당근 매물을 보여줍니다.</p>
     </article>
   `;
 }
@@ -114,11 +114,7 @@ function renderResult(result) {
       <article class="card">
         <div class="card-kicker">신품</div>
         <h2>${escapeHtml(result.query)}</h2>
-        <p class="muted">다나와에 올라온 판매 사이트를 아직 읽지 못했습니다. 다나와에서 직접 확인할 수 있습니다.</p>
-        <div class="actions">
-          <a class="btn" href="${result.official.naver}" target="_blank" rel="noopener">네이버쇼핑</a>
-          <a class="btn" href="${result.official.danawa}" target="_blank" rel="noopener">다나와</a>
-        </div>
+        <p class="muted">등록된 쇼핑몰에서 이 상품 가격을 읽지 못했습니다.</p>
       </article>
     `;
   } else {
@@ -126,7 +122,7 @@ function renderResult(result) {
       <article class="card">
         <div class="card-kicker">신품 최저가 1~${result.shops.length}위</div>
         <h2>${escapeHtml(result.query)}</h2>
-        <p class="meta">실제 판매처 기준 · 가격순</p>
+        <p class="meta">개별 쇼핑몰을 직접 확인한 가격순</p>
         <div class="rank-list rank-list-main">${rankRows(result.shops, result.suggested && result.suggested.url)}</div>
       </article>
     `;

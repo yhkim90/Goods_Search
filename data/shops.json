@@ -1,0 +1,31 @@
+{
+  "items": [
+    {
+      "id": "official",
+      "name": "스파코리아 공식몰",
+      "searchUrl": "https://sparkorea.com/product/search.html?keyword={q}",
+      "products": {
+        "sp-800": "https://sparkorea.com/product/sp-800-%ED%99%94%EC%9D%B4%ED%8A%B8/239/",
+        "sp-800a": "https://sparkorea.com/product/sp-800a/243/"
+      }
+    },
+    {
+      "id": "ellscoffee",
+      "name": "엘스커피",
+      "searchUrl": "https://ellscoffee.co.kr/product/search.html?keyword={q}",
+      "products": {
+        "sp-800": "https://ellscoffee.co.kr/product/%EC%8A%A4%ED%8C%8C%EB%AF%B9%EC%84%9C-sp-800-%EB%B2%84%ED%8B%B0%EC%BB%AC-%EB%AF%B9%EC%84%9C%EA%B8%B0/495/",
+        "sp-800a": "https://ellscoffee.co.kr/product/%EC%8A%A4%ED%8C%8C%EB%AF%B9%EC%84%9C-sp-800a-%EB%B2%84%ED%8B%B0%EC%BB%AC-%EB%AF%B9%EC%84%9C%EA%B8%B0/307/"
+      }
+    },
+    {
+      "id": "okcoffeemall",
+      "name": "오케이커피몰",
+      "searchUrl": "http://okcoffeemall.com/goods/goods_search.php?keyword={q}",
+      "products": {
+        "sp-800": "http://okcoffeemall.com/goods/goods_view.php?goodsNo=2119",
+        "sp-800a": "http://okcoffeemall.com/goods/goods_view.php?goodsNo=2118"
+      }
+    }
+  ]
+}
