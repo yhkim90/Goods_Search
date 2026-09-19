@@ -348,6 +348,14 @@ body {
   font-weight: 600;
 }
 
+.rank-product {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
 .rank-trust {
   display: flex;
   align-items: center;

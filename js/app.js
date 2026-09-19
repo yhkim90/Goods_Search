@@ -50,15 +50,16 @@ function rankRows(items, suggestedUrl) {
     .map((item, index) => {
       const tag = suggestedUrl && item.url === suggestedUrl ? '<span class="rank-tag">신뢰 우선</span>' : "";
       const href = item.url || "#";
-      const name = visibleLabel(item.seller, visibleLabel(item.title, item.source || "판매처"));
-      const note = visibleLabel(item.trust?.note, visibleLabel(item.title, ""));
+      const name = visibleLabel(item.seller, item.source || "판매처");
+      const product = String(item.product || item.title || "").replace(/\s+/g, " ").trim();
+      const showProduct = product && compact(product) !== compact(name);
       return `
         <a class="rank-row" href="${href}" target="_blank" rel="noopener">
           <span class="rank-no">${index + 1}</span>
           <span class="rank-body">
             <span class="rank-name">${escapeHtml(name)}${tag}</span>
+            ${showProduct ? `<span class="rank-product">${escapeHtml(product)}</span>` : ""}
             <span class="rank-trust">${starsHtml(item.trust?.stars || 2)}</span>
-            ${note ? `<span class="rank-note">${escapeHtml(note)}</span>` : ""}
           </span>
           <span class="rank-price">${won(item.price)}</span>
         </a>

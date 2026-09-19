@@ -125,6 +125,23 @@ function isBannedSeller(name) {
   return /다나와|에누리|네이버쇼핑|네이버|쿠팡|지마켓|옥션|11번가|구글|빙|다음|검색|광고|이미지|블로그|카페|판매가|할인가|최저가|평균|배송/i.test(name);
 }
 
+function isJunkSeller(name) {
+  const text = String(name || "").trim();
+  if (!text || isBannedSeller(text)) {
+    return true;
+  }
+  if (/보관|파손|권장|옵션|용량|구매\s*후|박스|구성|weba|sosang/i.test(text)) {
+    return true;
+  }
+  if (/^\d+\s*[lL리터]/.test(text)) {
+    return true;
+  }
+  if (/^[a-z0-9]+$/i.test(text) && text.length > 14) {
+    return true;
+  }
+  return text.length > 28;
+}
+
 function hostLabel(url) {
   const host = hostnameOf(url);
   const known = {
@@ -213,23 +230,47 @@ function pickProductPrice(text) {
   return bestCount >= 2 ? best : amounts[0];
 }
 
-function sellerFromHit(title, url, query) {
+function productNameFrom(text, query, fallback) {
+  const og = String(text || "").match(/property="og:title"[^>]+content="([^"]+)"/i);
+  const title = String(text || "").match(/<title[^>]*>([^<]+)<\/title>/i);
+  const heading = String(text || "").match(/^#\s+(.+)$/m);
+  const candidates = [og && og[1], title && title[1], heading && heading[1], fallback, query];
+  for (const item of candidates) {
+    const cleaned = decodeHtml(item)
+      .replace(/\s*[|\-–].*$/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleaned || cleaned.length < 2 || cleaned.length > 70 || isJunkSeller(cleaned)) {
+      continue;
+    }
+    if (isRelevant(cleaned, query) || compact(cleaned).includes(compact(query).slice(0, 8))) {
+      return cleaned.length > 56 ? `${cleaned.slice(0, 56)}…` : cleaned;
+    }
+  }
+  return fallback || query;
+}
+
+function sellerFromPage(html, url, query) {
   const hostName = hostLabel(url);
-  const cleaned = visibleLabel(title, "");
-  if (!cleaned) {
+  const known = {
+    "nike.com": 1,
+    "sparkorea.com": 1,
+    "ellscoffee.co.kr": 1,
+    "okcoffeemall.com": 1,
+  };
+  if (known[hostnameOf(url)]) {
     return hostName;
   }
-  const q = compact(query);
-  const t = compact(cleaned);
-  if (q && (t.includes(q) || (q.includes(t) && t.length >= 4))) {
-    return hostName;
+  const site = String(html || "").match(/property="og:site_name"[^>]+content="([^"]+)"/i);
+  const siteName = visibleLabel(site && site[1], "");
+  if (siteName && !isJunkSeller(siteName) && !isRelevant(siteName, query)) {
+    return siteName;
   }
-  const parts = cleaned.split(/\s*[|\-–:\/]\s*/);
-  const last = parts[parts.length - 1];
-  if (last && last.length <= 18 && visibleLabel(last, "") && !compact(last).includes(q)) {
-    return last;
-  }
-  return hostName;
+  return isJunkSeller(hostName) ? "판매처" : hostName;
+}
+
+function sellerFromHit(title, url, query) {
+  return sellerFromPage("", url, query);
 }
 
 function trustFor(url, seller) {
@@ -263,15 +304,17 @@ function trustFor(url, seller) {
   return { stars, note, https: url.startsWith("https://") };
 }
 
-function toOffer(seller, price, url, title) {
+function toOffer(seller, price, url, product) {
+  const shop = isJunkSeller(seller) ? hostLabel(url) : seller;
+  const name = product && product !== shop ? product : "";
   return {
-    title: seller,
-    seller,
+    title: name || shop,
+    seller: shop,
+    product: name,
     price,
     url,
     source: hostnameOf(url),
-    trust: trustFor(url, seller),
-    product: title || seller,
+    trust: trustFor(url, shop),
   };
 }
 
@@ -288,7 +331,7 @@ function uniqueBySeller(offers) {
 }
 
 function saneShopOffers(offers) {
-  const valid = offers.filter((item) => item && item.price >= 10000 && item.seller && !isBannedSeller(item.seller));
+  const valid = offers.filter((item) => item && item.price >= 10000 && item.seller && !isJunkSeller(item.seller));
   if (!valid.length) {
     return [];
   }
@@ -428,14 +471,14 @@ function parseSearchHits(text, query) {
 }
 
 async function searchWeb(query) {
-  const q = encodeURIComponent(query);
-  const qPrice = encodeURIComponent(`${query} 가격`);
+  const term = primarySearchTerm(query);
   const pages = [
-    `https://html.duckduckgo.com/html/?q=${qPrice}`,
-    `https://lite.duckduckgo.com/lite/?q=${qPrice}`,
-    `https://www.bing.com/search?q=${qPrice}`,
-    `https://search.naver.com/search.naver?query=${qPrice}`,
-    `https://search.danawa.com/dsearch.php?query=${q}`,
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`${query} 판매`)}`,
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`${term} 가격`)}`,
+    `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(`${term} 판매`)}`,
+    `https://www.bing.com/search?q=${encodeURIComponent(`${term} 판매`)}`,
+    `https://search.naver.com/search.naver?query=${encodeURIComponent(`${query} 가격`)}`,
+    `https://search.danawa.com/dsearch.php?query=${encodeURIComponent(term)}`,
   ];
   const texts = await Promise.all(
     pages.map(async (url) => {
@@ -459,15 +502,15 @@ async function visitShop(url, query) {
       new Promise((_, reject) => setTimeout(() => reject(new Error("시간 초과")), 6000)),
     ]);
     const price = pickProductPrice(html);
-    const heading = (html.match(/<title[^>]*>([^<]+)<\/title>/i) || html.match(/^#\s+(.+)$/m) || [])[1];
-    const seller = sellerFromHit(heading || hostLabel(url), url, query);
-    if (!price || !seller || isBannedSeller(seller)) {
+    const product = productNameFrom(html, query, query);
+    const seller = sellerFromPage(html, url, query);
+    if (!price || !seller || isJunkSeller(seller)) {
       return null;
     }
-    if (!isRelevant(`${heading || ""} ${url} ${html.slice(0, 4000)}`, query)) {
+    if (!isRelevant(`${product} ${url} ${html.slice(0, 4000)}`, query)) {
       return null;
     }
-    return toOffer(seller, price, url, heading);
+    return toOffer(seller, price, url, product);
   } catch (error) {
     return null;
   }
@@ -487,6 +530,7 @@ function parseDaangn(text, fallbackUrl, query) {
     offers.push({
       title: name,
       seller: visibleLabel(region, "당근"),
+      product: name,
       price,
       url: url || fallbackUrl,
       source: "당근",
@@ -538,23 +582,18 @@ async function searchProduct(query) {
   }
 
   const [hits, daangn] = await Promise.all([searchWeb(q), searchDaangn(q)]);
+  const toVisit = hits
+    .filter((hit) => isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q) && shopScore(hit.url) > 0)
+    .map((hit) => hit.url)
+    .filter((url, index, list) => list.indexOf(url) === index)
+    .sort((a, b) => shopScore(b) - shopScore(a))
+    .slice(0, VISIT_LIMIT);
+  const visited = (await Promise.all(toVisit.map((url) => visitShop(url, q)))).filter(Boolean);
   const fromSearch = hits
-    .filter((hit) => hit.price && hit.seller && isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q))
-    .map((hit) => toOffer(hit.seller, hit.price, hit.url, hit.title));
+    .filter((hit) => hit.price && isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q) && shopScore(hit.url) > 0)
+    .map((hit) => toOffer(hostLabel(hit.url), hit.price, hit.url, isRelevant(hit.title, q) ? hit.title : q));
 
-  let visited = [];
-  if (fromSearch.length < RANK_LIMIT) {
-    const have = new Set(fromSearch.map((item) => item.url));
-    const extra = hits
-      .filter((hit) => isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q))
-      .map((hit) => hit.url)
-      .filter((url, index, list) => list.indexOf(url) === index && !have.has(url) && shopScore(url) > 0)
-      .sort((a, b) => shopScore(b) - shopScore(a))
-      .slice(0, VISIT_LIMIT);
-    visited = (await Promise.all(extra.map((url) => visitShop(url, q)))).filter(Boolean);
-  }
-
-  const shopOffers = rankOffers(fromSearch.concat(visited));
+  const shopOffers = rankOffers(visited.concat(fromSearch));
 
   return {
     query: q,
