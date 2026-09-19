@@ -113,6 +113,43 @@ function cleanUrl(value) {
   }
 }
 
+function looksLikeUsedListing(text) {
+  const t = String(text || "");
+  let score = 0;
+  if (/사용감|직거래|나눔합니다|개인\s*판매|끌올|채팅\s*하기/.test(t)) {
+    score += 2;
+  }
+  if (/중고\s*(입니다|상품|제품|매물|판매|거래)|깨끗하게\s*썼|몇\s*번\s*안\s*썼|거래완료/.test(t)) {
+    score += 2;
+  }
+  return score >= 2;
+}
+
+function looksLikeNewShop(text) {
+  const t = String(text || "");
+  let score = 0;
+  if (/장바구니|바로\s*구매|구매하기|옵션\s*선택|필수\s*옵션/.test(t)) {
+    score += 2;
+  }
+  if (/사업자등록|통신판매|교환\s*[·\/]?\s*반품|상품코드|제조사/.test(t)) {
+    score += 2;
+  }
+  if (/ec-data-price|set_goods_price|set_total_price/.test(t)) {
+    score += 2;
+  }
+  return score >= 2;
+}
+
+function isNewProductOffer(html, title) {
+  if (looksLikeUsedListing(title) && !looksLikeNewShop(html)) {
+    return false;
+  }
+  if (looksLikeNewShop(html)) {
+    return true;
+  }
+  return !looksLikeUsedListing(String(html || "").slice(0, 6000));
+}
+
 function isNoiseHost(host) {
   return /google|youtube|facebook|instagram|namu\.wiki|wikipedia|daangn|karrot|blog\.naver|cafe\.naver|post\.naver|tistory|medium\.com|search\.|bing\.com|duckduckgo|yahoo\.|baidu/i.test(host);
 }
@@ -144,21 +181,6 @@ function isJunkSeller(name) {
 
 function hostLabel(url) {
   const host = hostnameOf(url);
-  const known = {
-    "nike.com": "Nike",
-    "sparkorea.com": "스파코리아 공식몰",
-    "ellscoffee.co.kr": "엘스커피",
-    "okcoffeemall.com": "오케이커피몰",
-    "musinsa.com": "무신사",
-    "29cm.co.kr": "29CM",
-    "wconcept.co.kr": "W컨셉",
-    "ssfshop.com": "SSF샵",
-    "abcmart.co.kr": "ABC마트",
-    "e-himart.co.kr": "하이마트",
-  };
-  if (known[host]) {
-    return known[host];
-  }
   const store = url.match(/(?:smartstore|brand)\.naver\.com\/([^/?#]+)/i);
   if (store) {
     return store[1];
@@ -252,15 +274,6 @@ function productNameFrom(text, query, fallback) {
 
 function sellerFromPage(html, url, query) {
   const hostName = hostLabel(url);
-  const known = {
-    "nike.com": 1,
-    "sparkorea.com": 1,
-    "ellscoffee.co.kr": 1,
-    "okcoffeemall.com": 1,
-  };
-  if (known[hostnameOf(url)]) {
-    return hostName;
-  }
   const site = String(html || "").match(/property="og:site_name"[^>]+content="([^"]+)"/i);
   const siteName = visibleLabel(site && site[1], "");
   if (siteName && !isJunkSeller(siteName) && !isRelevant(siteName, query)) {
@@ -281,21 +294,9 @@ function trustFor(url, seller) {
     stars = 3.5;
     note = "네이버 스마트스토어";
   }
-  if (/공식|official|nike\.com|sparkorea/i.test(`${seller} ${host}`)) {
+  if (/공식|official/i.test(`${seller} ${host}`)) {
     stars = 4.5;
     note = "브랜드·공식 가능성이 큼";
-  }
-  if (host === "sparkorea.com") {
-    stars = 5;
-    note = "공식 수입사";
-  }
-  if (host === "ellscoffee.co.kr") {
-    stars = 4;
-    note = "사업자·후기 확인된 판매처";
-  }
-  if (host === "okcoffeemall.com") {
-    stars = 2;
-    note = "후기 적고 보안 연결이 약함";
   }
   if (url.startsWith("http://")) {
     stars = Math.min(stars, 2);
@@ -331,7 +332,7 @@ function uniqueBySeller(offers) {
 }
 
 function saneShopOffers(offers) {
-  const valid = offers.filter((item) => item && item.price >= 10000 && item.seller && !isJunkSeller(item.seller));
+  const valid = offers.filter((item) => item && item.price >= 10000 && item.seller && !isJunkSeller(item.seller) && !looksLikeUsedListing(`${item.seller} ${item.product} ${item.title}`));
   if (!valid.length) {
     return [];
   }
@@ -411,7 +412,7 @@ function shopScore(url) {
 function addHit(hits, title, rawUrl, snippet, query) {
   const url = cleanUrl(rawUrl);
   const host = hostnameOf(url);
-  if (!url || !host || isNoiseHost(host) || isAggregator(host)) {
+  if (!url || !host || isNoiseHost(host) || isAggregator(host) || looksLikeUsedListing(`${title} ${snippet}`)) {
     return;
   }
   const around = `${title || ""} ${snippet || ""}`;
@@ -470,16 +471,7 @@ function parseSearchHits(text, query) {
   return unique;
 }
 
-async function searchWeb(query) {
-  const term = primarySearchTerm(query);
-  const pages = [
-    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`${query} 판매`)}`,
-    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`${term} 가격`)}`,
-    `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(`${term} 판매`)}`,
-    `https://www.bing.com/search?q=${encodeURIComponent(`${term} 판매`)}`,
-    `https://search.naver.com/search.naver?query=${encodeURIComponent(`${query} 가격`)}`,
-    `https://search.danawa.com/dsearch.php?query=${encodeURIComponent(term)}`,
-  ];
+async function fetchSearchPages(pages) {
   const texts = await Promise.all(
     pages.map(async (url) => {
       try {
@@ -492,7 +484,48 @@ async function searchWeb(query) {
       }
     })
   );
-  return parseSearchHits(texts.join("\n"), query);
+  return texts.join("\n");
+}
+
+function expandSearchQueries(query, hits) {
+  const term = primarySearchTerm(query);
+  const compounds = [];
+  hits.forEach((hit) => {
+    let path = "";
+    try {
+      path = decodeURIComponent(new URL(hit.url).pathname);
+    } catch (error) {
+      path = "";
+    }
+    const tokens = `${hit.title} ${path}`.match(/[가-힣]{2,8}/g) || [];
+    for (let i = 0; i < tokens.length - 1; i += 1) {
+      const compound = `${tokens[i]}${tokens[i + 1]}`;
+      if (compound.length >= 5 && compound.length <= 12) {
+        compounds.push(`${term} ${compound}`);
+      }
+    }
+  });
+  return [...new Set(compounds)].slice(0, 2);
+}
+
+async function searchWeb(query) {
+  const term = primarySearchTerm(query);
+  const first = await fetchSearchPages([
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`${query} 판매`)}`,
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`${term} 가격`)}`,
+    `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(`${term} 판매`)}`,
+    `https://www.bing.com/search?q=${encodeURIComponent(`${term} 판매`)}`,
+    `https://search.naver.com/search.naver?query=${encodeURIComponent(`${query} 가격`)}`,
+    `https://search.danawa.com/dsearch.php?query=${encodeURIComponent(term)}`,
+  ]);
+  let hits = parseSearchHits(first, query);
+  const extra = expandSearchQueries(query, hits);
+  if (!extra.length) {
+    return hits;
+  }
+  const more = extra.map((item) => `https://search.naver.com/search.naver?query=${encodeURIComponent(item)}`);
+  more.push(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(extra[0])}`);
+  return parseSearchHits(`${first}\n${await fetchSearchPages(more)}`, query);
 }
 
 async function visitShop(url, query) {
@@ -504,7 +537,7 @@ async function visitShop(url, query) {
     const price = pickProductPrice(html);
     const product = productNameFrom(html, query, query);
     const seller = sellerFromPage(html, url, query);
-    if (!price || !seller || isJunkSeller(seller)) {
+    if (!price || !seller || isJunkSeller(seller) || !isNewProductOffer(html, `${product} ${seller}`)) {
       return null;
     }
     if (!isRelevant(`${product} ${url} ${html.slice(0, 4000)}`, query)) {
@@ -582,15 +615,24 @@ async function searchProduct(query) {
   }
 
   const [hits, daangn] = await Promise.all([searchWeb(q), searchDaangn(q)]);
-  const toVisit = hits
-    .filter((hit) => isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q) && shopScore(hit.url) > 0)
+  const rankedUrls = hits
+    .filter((hit) => isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q) && shopScore(hit.url) > 0 && !looksLikeUsedListing(`${hit.title} ${hit.snippet}`))
     .map((hit) => hit.url)
     .filter((url, index, list) => list.indexOf(url) === index)
-    .sort((a, b) => shopScore(b) - shopScore(a))
-    .slice(0, VISIT_LIMIT);
+    .sort((a, b) => shopScore(b) - shopScore(a));
+  const byHost = [];
+  const seenHost = new Set();
+  rankedUrls.forEach((url) => {
+    const host = hostnameOf(url);
+    if (!seenHost.has(host)) {
+      seenHost.add(host);
+      byHost.push(url);
+    }
+  });
+  const toVisit = byHost.concat(rankedUrls.filter((url) => !byHost.includes(url))).slice(0, VISIT_LIMIT);
   const visited = (await Promise.all(toVisit.map((url) => visitShop(url, q)))).filter(Boolean);
   const fromSearch = hits
-    .filter((hit) => hit.price && isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q) && shopScore(hit.url) > 0)
+    .filter((hit) => hit.price && isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q) && shopScore(hit.url) > 0 && !looksLikeUsedListing(`${hit.title} ${hit.snippet}`))
     .map((hit) => toOffer(hostLabel(hit.url), hit.price, hit.url, isRelevant(hit.title, q) ? hit.title : q));
 
   const shopOffers = rankOffers(visited.concat(fromSearch));
