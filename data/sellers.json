@@ -1,0 +1,99 @@
+{
+  "items": [
+    {
+      "id": "official",
+      "name": "스파코리아 공식몰",
+      "role": "official",
+      "score": 5.0,
+      "stars": 5.0,
+      "reviewCount": 0,
+      "rating": null,
+      "maxDiscountRate": 0,
+      "https": true,
+      "biz": {
+        "number": "541-87-00841",
+        "company": "주식회사 스파코리아",
+        "checksumValid": true,
+        "ntsCode": "",
+        "ntsLabel": "번호 형식 정상",
+        "lookupUrl": "https://teht.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/ab/a/a/UTEABAAA13.xml"
+      },
+      "consumer": {
+        "warningCount": 0,
+        "warningUrl": "https://www.consumer.go.kr/user/ftc/consumer/cnsmrBBS/740/selectInfoCDMGCSLCList.do?page=1&row=20&searchGbn=REGIST_DT&searchRange=searchRangeAll&searchKeyword=%EC%8A%A4%ED%8C%8C%EC%BD%94%EB%A6%AC%EC%95%84",
+        "ftcFound": false,
+        "ftcChecked": true,
+        "ftcUrl": "https://www.ftc.go.kr/www/selectBizCommList.do?key=254&pageIndex=1&pageUnit=10&searchCnd=BZMNNM&searchKrwd=%EC%8A%A4%ED%8C%8C%EC%BD%94%EB%A6%AC%EC%95%84",
+        "storeReviewCount": 0,
+        "storeComplaintCount": 0,
+        "label": "소비자24 피해주의보 없음"
+      },
+      "reasons": ["번호 형식 정상", "공식 수입사", "소비자24 피해주의보 없음"]
+    },
+    {
+      "id": "ellscoffee",
+      "name": "엘스커피",
+      "role": "reseller",
+      "score": 4.1,
+      "stars": 4.0,
+      "reviewCount": 3,
+      "rating": 5.0,
+      "maxDiscountRate": 0,
+      "https": true,
+      "biz": {
+        "number": "718-81-00100",
+        "company": "주식회사 이알코퍼레이션",
+        "checksumValid": true,
+        "ntsCode": "",
+        "ntsLabel": "번호 형식 정상",
+        "lookupUrl": "https://teht.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/ab/a/a/UTEABAAA13.xml"
+      },
+      "consumer": {
+        "warningCount": 0,
+        "warningUrl": "https://www.consumer.go.kr/user/ftc/consumer/cnsmrBBS/740/selectInfoCDMGCSLCList.do?page=1&row=20&searchGbn=REGIST_DT&searchRange=searchRangeAll&searchKeyword=%EC%97%98%EC%8A%A4%EC%BB%A4%ED%94%BC",
+        "ftcFound": false,
+        "ftcChecked": false,
+        "ftcUrl": "",
+        "storeReviewCount": 0,
+        "storeComplaintCount": 0,
+        "label": "소비자24 피해주의보 없음"
+      },
+      "reasons": ["번호 형식 정상", "소비자24 피해주의보 없음", "이 상품 후기 3건 · 평점 5.0"]
+    },
+    {
+      "id": "okcoffeemall",
+      "name": "오케이커피몰",
+      "role": "reseller",
+      "score": 1.8,
+      "stars": 2.0,
+      "reviewCount": 0,
+      "rating": null,
+      "maxDiscountRate": 34.0,
+      "https": false,
+      "biz": {
+        "number": "131-36-65010",
+        "company": "오케이커피몰",
+        "checksumValid": true,
+        "ntsCode": "",
+        "ntsLabel": "번호 형식 정상",
+        "lookupUrl": "https://teht.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/ab/a/a/UTEABAAA13.xml"
+      },
+      "consumer": {
+        "warningCount": 0,
+        "warningUrl": "https://www.consumer.go.kr/user/ftc/consumer/cnsmrBBS/740/selectInfoCDMGCSLCList.do?page=1&row=20&searchGbn=REGIST_DT&searchRange=searchRangeAll&searchKeyword=%EC%98%A4%EC%BC%80%EC%9D%B4%EC%BB%A4%ED%94%BC%EB%AA%B0",
+        "ftcFound": false,
+        "ftcChecked": true,
+        "ftcUrl": "https://www.ftc.go.kr/www/selectBizCommList.do?key=254&pageIndex=1&pageUnit=10&searchCnd=BZMNNM&searchKrwd=%EC%98%A4%EC%BC%80%EC%9D%B4%EC%BB%A4%ED%94%BC%EB%AA%B0",
+        "storeReviewCount": 8,
+        "storeComplaintCount": 1,
+        "label": "소비자24 피해주의보 없음"
+      },
+      "reasons": [
+        "이 상품 후기 0건 · 몰 전체 8건",
+        "소비자24 피해주의보 없음",
+        "공정위 상호 조회 안 됨",
+        "몰 후기 불만 1건"
+      ]
+    }
+  ]
+}

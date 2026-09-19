@@ -35,6 +35,8 @@ def _collect_one(product_id: str, url: str) -> dict:
         raise RuntimeError("판매가를 찾지 못함")
     title_match = re.search(r"<title>([^<]+)</title>", html, re.IGNORECASE)
     title = (title_match.group(1).split("/")[0].strip() if title_match else product_id)
+    review_match = re.search(r'class="review_count">(\d+)', html)
+    rating_match = re.search(r'"ratingValue"\s*:\s*(\d+(?:\.\d+)?)', html)
     return {
         "id": f"{SELLER_ID}:{product_id}",
         "productId": product_id,
@@ -45,6 +47,8 @@ def _collect_one(product_id: str, url: str) -> dict:
         "listPrice": custom or sale,
         "shippingFee": 0,
         "url": url,
+        "reviewCount": int(review_match.group(1)) if review_match else 0,
+        "rating": float(rating_match.group(1)) if rating_match else None,
     }
 
 

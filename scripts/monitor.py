@@ -9,7 +9,10 @@ sys.path.insert(0, str(ROOT))
 
 from collectors import daangn, ellscoffee, official, okcoffeemall
 from config import CHECK_INTERVAL_MINUTES, DATA_DIR, PRODUCTS
+from bizcheck import lookup_status
+from consumercheck import inspect_seller
 from notify import send_events
+from trust import PROFILES, build_sellers
 
 KST = timezone(timedelta(hours=9))
 COLLECTORS = (
@@ -145,6 +148,18 @@ def main() -> int:
     previous_status = _load("status.json")
 
     _save("prices.json", {"updatedAt": now_iso, "items": merged})
+    nts_map = lookup_status(
+        [profile["bizNo"] for profile in PROFILES.values() if profile.get("bizNo")]
+    )
+    consumer_map = {}
+    for seller_id, profile in PROFILES.items():
+        try:
+            consumer_map[seller_id] = inspect_seller(profile)
+            print(f"소비자조회: {seller_id} 주의보 {consumer_map[seller_id].get('warningCount', 0)}")
+        except Exception as error:
+            print(f"소비자조회: {seller_id} FAILED {error}")
+            consumer_map[seller_id] = {}
+    _save("sellers.json", build_sellers(merged, nts_map, consumer_map))
     _save("history.json", {"items": history_items[-200:]})
     _save("events.json", {"items": events})
     _save("alerts.json", alerts_doc)

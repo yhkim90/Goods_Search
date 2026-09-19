@@ -25,7 +25,11 @@
     <header class="hero">
       <p class="brand">SP WATCH</p>
       <h1>SP-800A / SP-800</h1>
-      <p class="checked">최근 확인 <strong id="last-check">-</strong></p>
+      <div class="check-row">
+        <p class="checked">최근 확인 <strong id="last-check">-</strong></p>
+        <button type="button" id="refresh-btn" class="refresh-btn">새로고침</button>
+      </div>
+      <p class="refresh-note" id="refresh-note"></p>
     </header>
 
     <section id="alert-stack" class="stack"></section>

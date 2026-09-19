@@ -40,6 +40,7 @@ def _collect_one(product_id: str, url: str) -> dict:
     if not title_match:
         title_match = re.search(r"<h[12][^>]*>([^<]*SP-800[^<]*)", html, re.IGNORECASE)
     title = title_match.group(1).strip() if title_match else product_id
+    review_match = re.search(r"상품후기\s*<strong>\((\d+)\)</strong>", html)
     return {
         "id": f"{SELLER_ID}:{product_id}",
         "productId": product_id,
@@ -50,6 +51,8 @@ def _collect_one(product_id: str, url: str) -> dict:
         "listPrice": price,
         "shippingFee": 0,
         "url": url,
+        "reviewCount": int(review_match.group(1)) if review_match else 0,
+        "rating": None,
     }
 
 

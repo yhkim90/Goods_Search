@@ -55,8 +55,16 @@ body {
   letter-spacing: -0.03em;
 }
 
+.check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
 .checked {
-  margin: 10px 0 0;
+  margin: 0;
   font-size: 14px;
   color: var(--muted);
 }
@@ -64,6 +72,30 @@ body {
 .checked strong {
   color: var(--text);
   font-weight: 600;
+}
+
+.refresh-btn {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #242428;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.55;
+}
+
+.refresh-note {
+  margin: 8px 0 0;
+  min-height: 1.2em;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .stack {
@@ -115,6 +147,140 @@ body {
   font-size: 15px;
   font-weight: 600;
   color: var(--sale);
+}
+
+.trust {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.stars {
+  position: relative;
+  display: inline-block;
+  color: #3a3a3e;
+  letter-spacing: 1px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.stars::before {
+  content: "★★★★★";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--pct);
+  overflow: hidden;
+  color: #ffd60a;
+  white-space: nowrap;
+}
+
+.trust-score {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.trust-why {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.biz {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.biz-ok {
+  color: var(--ok);
+}
+
+.biz-bad {
+  color: var(--err);
+}
+
+.safer {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ok);
+  text-decoration: none;
+}
+
+.rank-list {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+}
+
+.rank-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.rank-no {
+  width: 18px;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.rank-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.rank-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rank-trust {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.stars-sm {
+  font-size: 11px;
+}
+
+.rank-score {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.rank-price {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-tag {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ok);
 }
 
 .muted {

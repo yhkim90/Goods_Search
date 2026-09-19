@@ -35,7 +35,9 @@
       "listPrice": 1500000,
       "shippingFee": 0,
       "url": "https://ellscoffee.co.kr/product/%EC%8A%A4%ED%8C%8C%EB%AF%B9%EC%84%9C-sp-800-%EB%B2%84%ED%8B%B0%EC%BB%AC-%EB%AF%B9%EC%84%9C%EA%B8%B0/495/",
-      "collectedAt": "2026-09-19T10:00:00+09:00"
+      "collectedAt": "2026-09-19T10:00:00+09:00",
+      "reviewCount": 3,
+      "rating": 5.0
     },
     {
       "id": "ellscoffee:sp-800a",
@@ -47,7 +49,9 @@
       "listPrice": 1650000,
       "shippingFee": 0,
       "url": "https://ellscoffee.co.kr/product/%EC%8A%A4%ED%8C%8C%EB%AF%B9%EC%84%9C-sp-800a-%EB%B2%84%ED%8B%B0%EC%BB%AC-%EB%AF%B9%EC%84%9C%EA%B8%B0/307/",
-      "collectedAt": "2026-09-19T10:00:00+09:00"
+      "collectedAt": "2026-09-19T10:00:00+09:00",
+      "reviewCount": 0,
+      "rating": null
     },
     {
       "id": "okcoffeemall:sp-800",
@@ -59,7 +63,9 @@
       "listPrice": 990000,
       "shippingFee": 0,
       "url": "http://okcoffeemall.com/goods/goods_view.php?goodsNo=2119",
-      "collectedAt": "2026-09-19T10:00:00+09:00"
+      "collectedAt": "2026-09-19T10:00:00+09:00",
+      "reviewCount": 0,
+      "rating": null
     },
     {
       "id": "okcoffeemall:sp-800a",
@@ -71,7 +77,9 @@
       "listPrice": 1180000,
       "shippingFee": 0,
       "url": "http://okcoffeemall.com/goods/goods_view.php?goodsNo=2118",
-      "collectedAt": "2026-09-19T10:00:00+09:00"
+      "collectedAt": "2026-09-19T10:00:00+09:00",
+      "reviewCount": 0,
+      "rating": null
     }
   ]
 }
