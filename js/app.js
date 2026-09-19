@@ -72,7 +72,7 @@ function emptyState() {
     <article class="card">
       <div class="card-kicker">GOODS SEARCH</div>
       <h2>상품을 검색하세요</h2>
-      <p class="muted">상품명을 입력하면 등록된 쇼핑몰을 직접 열어 최저가 5곳과 당근 매물을 보여줍니다.</p>
+      <p class="muted">상품명을 입력하면 인터넷에서 판매 사이트를 찾아 최저가 5곳과 당근 매물을 보여줍니다.</p>
     </article>
   `;
 }
@@ -114,7 +114,7 @@ function renderResult(result) {
       <article class="card">
         <div class="card-kicker">신품</div>
         <h2>${escapeHtml(result.query)}</h2>
-        <p class="muted">등록된 쇼핑몰에서 이 상품 가격을 읽지 못했습니다.</p>
+        <p class="muted">인터넷에서 이 상품을 파는 사이트를 아직 찾지 못했습니다.</p>
       </article>
     `;
   } else {
@@ -122,7 +122,7 @@ function renderResult(result) {
       <article class="card">
         <div class="card-kicker">신품 최저가 1~${result.shops.length}위</div>
         <h2>${escapeHtml(result.query)}</h2>
-        <p class="meta">개별 쇼핑몰을 직접 확인한 가격순</p>
+        <p class="meta">인터넷에서 찾은 판매처 · 가격순</p>
         <div class="rank-list rank-list-main">${rankRows(result.shops, result.suggested && result.suggested.url)}</div>
       </article>
     `;
