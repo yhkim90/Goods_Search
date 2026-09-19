@@ -14,7 +14,46 @@ const KNOWN_MALLS = [
   { test: /danawa|다나와/, name: "다나와", score: 3.5, note: "가격비교" },
   { test: /enuri|에누리/, name: "에누리", score: 3.5, note: "가격비교" },
   { test: /daangn|당근/, name: "당근", score: 3.2, note: "중고 개인거래" },
+  { test: /sparkorea|스파코리아/, name: "스파코리아", score: 5.0, note: "공식·수입사" },
 ];
+
+function cleanText(value) {
+  return decodeHtml(value)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/www\.\S+/gi, " ")
+    .replace(/%[0-9A-Fa-f]{2}\S*/g, " ")
+    .replace(/[*_#>`|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isVisibleLabel(value) {
+  const text = cleanText(value);
+  if (!text || text.length < 2 || text.length > 48) {
+    return false;
+  }
+  if (/https?:\/\//i.test(text) || /www\./i.test(text) || /daangn|karrot|gcp-/i.test(text)) {
+    return false;
+  }
+  return true;
+}
+
+function visibleLabel(value, fallback) {
+  return isVisibleLabel(value) ? cleanText(value) : fallback;
+}
+
+function extractHttpUrl(text, hostHint) {
+  const source = String(text || "");
+  const marked = source.match(/\((https?:\/\/[^)\s]+)\)/i);
+  if (marked && (!hostHint || marked[1].includes(hostHint))) {
+    return marked[1];
+  }
+  const raw = source.match(/https?:\/\/[^\s)\]"'<>]+/gi) || [];
+  const picked = raw.find((url) => !/img|image|karrotcdn|googleusercontent/i.test(url) && (!hostHint || url.includes(hostHint)));
+  return picked || "";
+}
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
@@ -123,10 +162,12 @@ function uniqueBySeller(offers) {
   return [...unique.values()];
 }
 
-function rankOffers(offers, query) {
-  return uniqueBySeller(
-    offers.filter((item) => item.price > 0 && matchesQuery(item.title || item.seller, query))
-  )
+function isShopOffer(item) {
+  return item && item.source !== "당근" && item.price > 0;
+}
+
+function rankOffers(offers) {
+  return uniqueBySeller(offers.filter(isShopOffer))
     .sort((a, b) => {
       if (a.price !== b.price) {
         return a.price - b.price;
@@ -183,9 +224,12 @@ function pushOffer(list, offer) {
   if (!offer || !offer.price) {
     return;
   }
+  const fallback = offer.source === "당근" ? "당근 매물" : offer.source || "판매처";
+  const title = visibleLabel(offer.title, "");
+  const seller = visibleLabel(offer.seller, title || fallback);
   list.push({
-    title: decodeHtml(offer.title || offer.seller || ""),
-    seller: decodeHtml(offer.seller || offer.title || "판매처"),
+    title: title || seller,
+    seller,
     price: offer.price,
     url: offer.url || "",
     source: offer.source,
@@ -278,37 +322,103 @@ function parseNaver(html, fallbackUrl) {
   return offers.length ? offers : offersFromPriceContext(html, "네이버쇼핑", fallbackUrl);
 }
 
-function parseDaangn(text, fallbackUrl) {
+function extractPcodes(text) {
+  return [...new Set([...String(text || "").matchAll(/pcode=(\d{5,})/gi)].map((item) => item[1]))].slice(0, 2);
+}
+
+function parseNamedSellers(text, source, fallbackUrl) {
   const offers = [];
-  const lines = text.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (/거래완료/.test(line)) {
+  const regex = /(?:판매처|쇼핑몰|스토어|mall(?:Name)?|업체)\s*[:："=]?\s*([가-힣A-Za-z0-9][가-힣A-Za-z0-9& ._-]{1,28})[\s\S]{0,120}?([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,9})\s*원?/gi;
+  let match;
+  while ((match = regex.exec(text))) {
+    const seller = visibleLabel(match[1], "");
+    if (!seller || /다나와|에누리|네이버쇼핑|검색/.test(seller)) {
       continue;
     }
-    const markdown = line.match(/[-*]\s+(.+?)\s+([0-9]{1,3}(?:,[0-9]{3})+)\s*원/);
-    if (markdown) {
-      const region = decodeHtml((lines[index + 1] || "").replace(/[·\s]+$/, ""));
-      pushOffer(offers, {
-        title: markdown[1],
-        seller: region && !/거래/.test(region) ? `당근 · ${region}` : "당근",
-        price: parseWon(markdown[2]),
-        url: fallbackUrl,
-        source: "당근",
-      });
-    }
+    const chunk = text.slice(match.index, match.index + 220);
+    pushOffer(offers, {
+      title: seller,
+      seller,
+      price: parseWon(match[2]),
+      url: extractHttpUrl(chunk, "") || fallbackUrl,
+      source,
+    });
   }
-  const htmlCards = text.matchAll(/href="([^"]*(?:articles|buy-sell)[^"]*)"[\s\S]{0,400}?([0-9]{1,3}(?:,[0-9]{3})+)\s*원/gi);
-  for (const card of htmlCards) {
-    const chunk = card[0];
+  return offers;
+}
+
+function parseIndividualLinks(text, source) {
+  const offers = [];
+  const regex = /https?:\/\/((?:smartstore|brand)\.naver\.com\/[^\s"'<>]+|(?:www\.)?(?!danawa|enuri|shopping\.naver|search\.)[a-z0-9-]+\.(?:co\.kr|com)\/(?:product|goods|goods_view|shop|item|products)[^\s"'<>]*)/gi;
+  let match;
+  while ((match = regex.exec(text))) {
+    const url = match[0].replace(/[),.\]]+$/, "");
+    if (/danawa|enuri|search\.|\/np\/|\/search/i.test(url)) {
+      continue;
+    }
+    const start = Math.max(0, match.index - 180);
+    const chunk = text.slice(start, match.index + url.length);
+    const price = parseWon((chunk.match(/([0-9]{1,3}(?:,[0-9]{3})+)\s*원/) || [])[1] || "");
+    const seller = visibleLabel(hostnameOf(url).replace(/\.co\.kr$|\.com$/, ""), source);
+    pushOffer(offers, {
+      title: seller,
+      seller,
+      price,
+      url,
+      source,
+    });
+  }
+  return offers;
+}
+
+function parseDanawaMalls(html, fallbackUrl) {
+  const offers = [
+    ...parseNamedSellers(html, "개별몰", fallbackUrl),
+    ...parseIndividualLinks(html, "개별몰"),
+  ];
+  const json = html.matchAll(/"mallName"\s*:\s*"([^"]+)"[\s\S]{0,260}?"(?:price|minPrice)"\s*:\s*"?([0-9]+)"?/g);
+  for (const item of json) {
+    const around = html.slice(item.index, item.index + 320);
+    pushOffer(offers, {
+      title: item[1],
+      seller: item[1],
+      price: parseWon(item[2]),
+      url: extractHttpUrl(around, "") || fallbackUrl,
+      source: "개별몰",
+    });
+  }
+  return offers;
+}
+
+function parseMarket(html, fallbackUrl, source) {
+  return [
+    ...parseNamedSellers(html, source, fallbackUrl),
+    ...parseIndividualLinks(html, source),
+    ...offersFromPriceContext(html, source, fallbackUrl),
+  ];
+}
+
+function parseDaangn(text, fallbackUrl) {
+  const offers = [];
+  const regex = /([0-9]{1,3}(?:,[0-9]{3})+)\s*원/g;
+  let match;
+  while ((match = regex.exec(text))) {
+    const start = Math.max(0, match.index - 280);
+    const chunk = text.slice(start, match.index + 80);
     if (/거래완료/.test(chunk)) {
       continue;
     }
+    const title = visibleLabel(chunk.replace(match[0], ""), "");
+    if (!title) {
+      continue;
+    }
+    const after = text.slice(match.index, match.index + 220);
+    const region = visibleLabel((after.match(/([가-힣]{1,8}동|[가-힣]{2,8}구)/) || [])[1], "");
     pushOffer(offers, {
-      title: decodeHtml((chunk.match(/>([가-힣A-Za-z0-9][^<]{4,80})</) || [])[1] || "당근 매물"),
-      seller: "당근",
-      price: parseWon(card[2]),
-      url: card[1].startsWith("http") ? card[1] : `https://www.daangn.com${card[1]}`,
+      title,
+      seller: region || title,
+      price: parseWon(match[1]),
+      url: extractHttpUrl(chunk + after, "daangn.com") || fallbackUrl,
       source: "당근",
     });
   }
@@ -325,6 +435,28 @@ async function searchSource(name, url, parser) {
   }
 }
 
+async function expandDanawaSellers(searchHtml) {
+  const pcodes = extractPcodes(searchHtml);
+  const collected = [];
+  await Promise.all(
+    pcodes.map(async (code) => {
+      const url = `https://prod.danawa.com/info/?pcode=${code}`;
+      try {
+        const text = await fetchText(url);
+        collected.push(...parseDanawaMalls(text, url).map(withTrust));
+      } catch (error) {
+        /* 개별몰 페이지를 못 열면 검색 결과는 그대로 사용 */
+      }
+    })
+  );
+  return {
+    name: "개별몰",
+    status: collected.length ? "ok" : pcodes.length ? "partial" : "skipped",
+    offers: collected,
+    error: collected.length ? "" : "개별 판매처를 더 열지 못함",
+  };
+}
+
 async function searchProduct(query) {
   const q = String(query || "").trim();
   if (!q) {
@@ -334,20 +466,42 @@ async function searchProduct(query) {
   const danawaUrl = `https://search.danawa.com/dsearch.php?query=${encoded}`;
   const enuriUrl = `https://www.enuri.com/search.jsp?keyword=${encoded}`;
   const naverUrl = `https://search.shopping.naver.com/search/all?query=${encoded}&sort=price_asc`;
+  const storeUrl = `https://search.shopping.naver.com/search/all?query=${encoded}&frm=NVSHCHK&productSet=checkout`;
+  const st11Url = `https://search.11st.co.kr/total/Search.tmall?kwd=${encoded}`;
+  const gmarketUrl = `https://browse.gmarket.co.kr/search?keyword=${encoded}`;
   const daangnUrl = `https://www.daangn.com/kr/buy-sell/?search=${encoded}`;
 
-  const [danawa, enuri, naver, daangn] = await Promise.all([
+  const [danawa, enuri, naver, store, st11, gmarket, daangn] = await Promise.all([
     searchSource("다나와", danawaUrl, parseDanawa),
     searchSource("에누리", enuriUrl, parseEnuri),
     searchSource("네이버쇼핑", naverUrl, parseNaver),
+    searchSource("스마트스토어", storeUrl, (html, url) => parseMarket(html, url, "스마트스토어")),
+    searchSource("11번가", st11Url, (html, url) => parseMarket(html, url, "11번가")),
+    searchSource("G마켓", gmarketUrl, (html, url) => parseMarket(html, url, "G마켓")),
     searchSource("당근", daangnUrl, parseDaangn),
   ]);
 
-  const shopOffers = rankOffers(
-    [...danawa.offers, ...enuri.offers, ...naver.offers].filter((item) => item.source !== "당근"),
-    q
-  );
-  const usedOffers = daangn.offers.filter((item) => matchesQuery(item.title, q) || item.source === "당근").slice(0, RANK_LIMIT);
+  let malls = { name: "개별몰", status: "skipped", offers: [], error: "" };
+  try {
+    const searchHtml = await fetchText(danawaUrl);
+    malls = await expandDanawaSellers(searchHtml);
+  } catch (error) {
+    malls.error = error.message || "개별몰 검색 실패";
+    malls.status = "error";
+  }
+
+  const shopOffers = rankOffers([
+    ...malls.offers,
+    ...danawa.offers,
+    ...enuri.offers,
+    ...naver.offers,
+    ...store.offers,
+    ...st11.offers,
+    ...gmarket.offers,
+  ]);
+  const usedOffers = daangn.offers
+    .filter((item) => isVisibleLabel(item.title) || isVisibleLabel(item.seller))
+    .slice(0, RANK_LIMIT);
 
   return {
     query: q,
@@ -355,7 +509,7 @@ async function searchProduct(query) {
     shops: shopOffers,
     used: usedOffers,
     suggested: suggestedOffer(shopOffers),
-    sources: [danawa, enuri, naver, daangn].map((item) => ({
+    sources: [danawa, malls, enuri, naver, store, st11, gmarket, daangn].map((item) => ({
       name: item.name,
       status: item.status,
       error: item.error,

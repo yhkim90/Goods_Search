@@ -23,21 +23,25 @@
 <body>
   <main class="app">
     <header class="hero">
-      <p class="brand">GOODS SEARCH</p>
+      <div class="topbar">
+        <p class="brand">GOODS SEARCH</p>
+        <button type="button" id="refresh-btn" class="refresh-btn">새로고침</button>
+      </div>
       <form class="search-form" id="search-form" role="search">
         <label class="sr-only" for="product-query">상품명</label>
         <input id="product-query" class="search-input" type="search" name="q" placeholder="상품명 입력" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
         <button type="submit" id="search-btn" class="search-btn">검색</button>
       </form>
-      <div class="toolbar">
-        <button type="button" id="refresh-btn" class="refresh-btn">새로고침</button>
-        <p class="checked" id="last-check">-</p>
-      </div>
+      <p class="checked" id="last-check">-</p>
       <p class="refresh-note" id="refresh-note"></p>
     </header>
 
-    <section id="price-stack" class="stack"></section>
-    <section id="daangn-stack"></section>
+    <nav class="tabs" id="result-tabs" hidden>
+      <button type="button" class="tab is-on" data-tab="shop">신품</button>
+      <button type="button" class="tab" data-tab="used">당근</button>
+    </nav>
+    <section id="shop-panel" class="stack"></section>
+    <section id="used-panel" class="stack" hidden></section>
 
     <footer class="status">
       <p class="status-title">마지막 검색</p>

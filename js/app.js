@@ -7,6 +7,7 @@ const BASE = (() => {
 })();
 
 const QUERY_KEY = "goods-search-query";
+let activeTab = "shop";
 
 function won(value) {
   return `${Number(value).toLocaleString("ko-KR")}원`;
@@ -49,13 +50,15 @@ function rankRows(items, suggestedUrl) {
     .map((item, index) => {
       const tag = suggestedUrl && item.url === suggestedUrl ? '<span class="rank-tag">신뢰 우선</span>' : "";
       const href = item.url || "#";
+      const name = visibleLabel(item.seller, visibleLabel(item.title, item.source || "판매처"));
+      const note = visibleLabel(item.trust?.note, visibleLabel(item.title, ""));
       return `
         <a class="rank-row" href="${href}" target="_blank" rel="noopener">
           <span class="rank-no">${index + 1}</span>
           <span class="rank-body">
-            <span class="rank-name">${escapeHtml(item.seller)}${tag}</span>
+            <span class="rank-name">${escapeHtml(name)}${tag}</span>
             <span class="rank-trust">${starsHtml(item.trust?.stars || 2)}</span>
-            <span class="rank-note">${escapeHtml(item.trust?.note || item.title || "")}</span>
+            ${note ? `<span class="rank-note">${escapeHtml(note)}</span>` : ""}
           </span>
           <span class="rank-price">${won(item.price)}</span>
         </a>
@@ -69,27 +72,44 @@ function emptyState() {
     <article class="card">
       <div class="card-kicker">GOODS SEARCH</div>
       <h2>상품을 검색하세요</h2>
-      <p class="muted">상품명을 입력한 뒤 검색을 누르면 최저가 업체 5곳과 당근 매물, 신뢰도를 찾아 보여줍니다.</p>
+      <p class="muted">상품명을 입력한 뒤 검색을 누르면 신품 최저가 업체와 당근 매물을 탭으로 나눠 보여줍니다.</p>
     </article>
   `;
 }
 
+function setTab(name) {
+  activeTab = name;
+  document.querySelectorAll(".tab").forEach((button) => {
+    button.classList.toggle("is-on", button.dataset.tab === name);
+  });
+  const shopPanel = document.getElementById("shop-panel");
+  const usedPanel = document.getElementById("used-panel");
+  if (shopPanel && usedPanel) {
+    shopPanel.hidden = name !== "shop";
+    usedPanel.hidden = name !== "used";
+  }
+}
+
 function renderResult(result) {
-  const priceStack = document.getElementById("price-stack");
-  const daangnStack = document.getElementById("daangn-stack");
+  const shopPanel = document.getElementById("shop-panel");
+  const usedPanel = document.getElementById("used-panel");
+  const tabs = document.getElementById("result-tabs");
   const clock = document.getElementById("last-check");
   const statusTime = document.getElementById("status-time");
   const sourceList = document.getElementById("source-list");
 
+  tabs.hidden = false;
   clock.textContent = formatClock(result.searchedAt);
   statusTime.textContent = `${result.query}\n${formatClock(result.searchedAt)}`;
+  document.querySelector('[data-tab="shop"]').textContent = `신품 ${result.shops.length}`;
+  document.querySelector('[data-tab="used"]').textContent = `당근 ${result.used.length}`;
 
   if (!result.shops.length) {
-    priceStack.innerHTML = `
+    shopPanel.innerHTML = `
       <article class="card">
         <div class="card-kicker">신품</div>
         <h2>${escapeHtml(result.query)}</h2>
-        <p class="muted">최저가 업체를 읽지 못했습니다. 아래 공식 검색으로 직접 확인할 수 있습니다.</p>
+        <p class="muted">비교사이트에서 판매처를 읽지 못했습니다. 공식 검색으로 확인할 수 있습니다.</p>
         <div class="actions">
           <a class="btn" href="${result.official.naver}" target="_blank" rel="noopener">네이버쇼핑</a>
           <a class="btn" href="${result.official.danawa}" target="_blank" rel="noopener">다나와</a>
@@ -97,29 +117,29 @@ function renderResult(result) {
       </article>
     `;
   } else {
-    priceStack.innerHTML = `
+    shopPanel.innerHTML = `
       <article class="card">
         <div class="card-kicker">신품 최저가 1~${result.shops.length}위</div>
         <h2>${escapeHtml(result.query)}</h2>
-        <p class="meta">가격순 · 비슷하면 별점 높은 곳 표시</p>
+        <p class="meta">검색된 업체를 가격순으로 보여줍니다</p>
         <div class="rank-list rank-list-main">${rankRows(result.shops, result.suggested && result.suggested.url)}</div>
       </article>
     `;
   }
 
   if (!result.used.length) {
-    daangnStack.innerHTML = `
+    usedPanel.innerHTML = `
       <article class="card daangn-card">
         <div class="card-kicker">당근</div>
         <h2>중고 매물</h2>
-        <p class="muted">앱에서 매물 목록을 읽지 못했습니다. 당근 공식 검색에서 확인할 수 있습니다.</p>
+        <p class="muted">매물 목록을 읽지 못했습니다. 당근 공식 검색에서 확인할 수 있습니다.</p>
         <div class="actions">
           <a class="btn" href="${result.official.daangn}" target="_blank" rel="noopener">당근에서 검색</a>
         </div>
       </article>
     `;
   } else {
-    daangnStack.innerHTML = `
+    usedPanel.innerHTML = `
       <article class="card daangn-card">
         <div class="card-kicker">당근 중고 1~${result.used.length}위</div>
         <h2>${escapeHtml(result.query)}</h2>
@@ -138,6 +158,8 @@ function renderResult(result) {
       return `<li><span><span class="dot ${source.status}"></span>${escapeHtml(source.name)}</span><span class="state-label">${label}</span></li>`;
     })
     .join("");
+
+  setTab(activeTab);
 }
 
 async function runSearch() {
@@ -152,20 +174,22 @@ async function runSearch() {
   } catch (error) {
     /* ignore */
   }
-  setBusy(true, true, "판매처와 당근 매물을 찾는 중");
+  setBusy(true, true, "판매처를 검색하는 중");
   try {
     const result = await searchProduct(query);
     renderResult(result);
-    const found = result.shops.length + result.used.length;
-    setBusy(true, false, found ? `검색 완료 · 신품 ${result.shops.length}곳 · 당근 ${result.used.length}건` : "검색은 끝났지만 목록을 비웠습니다");
+    setBusy(true, false, `검색 완료 · 신품 ${result.shops.length}곳 · 당근 ${result.used.length}건`);
   } catch (error) {
-    document.getElementById("price-stack").innerHTML = `
-      <article class="card">
-        <div class="card-kicker">검색</div>
-        <h2>${escapeHtml(query)}</h2>
-        <p class="muted">${escapeHtml(error.message)}</p>
-      </article>
-    `;
+    const shopPanel = document.getElementById("shop-panel");
+    if (shopPanel) {
+      shopPanel.innerHTML = `
+        <article class="card">
+          <div class="card-kicker">검색</div>
+          <h2>${escapeHtml(query)}</h2>
+          <p class="muted">${escapeHtml(error.message)}</p>
+        </article>
+      `;
+    }
     setBusy(true, false, error.message);
   }
 }
@@ -204,11 +228,17 @@ function bind() {
     runSearch();
   });
   refreshBtn.addEventListener("click", () => refreshProgram());
+  document.getElementById("result-tabs").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-tab]");
+    if (button) {
+      setTab(button.dataset.tab);
+    }
+  });
 }
 
 function boot() {
   bind();
-  document.getElementById("price-stack").innerHTML = emptyState();
+  document.getElementById("shop-panel").innerHTML = emptyState();
   document.getElementById("last-check").textContent = "-";
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register(`${BASE}service-worker.js`).catch(() => {});
