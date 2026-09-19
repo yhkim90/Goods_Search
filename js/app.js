@@ -133,7 +133,7 @@ function renderResult(result) {
       <article class="card daangn-card">
         <div class="card-kicker">당근</div>
         <h2>중고 매물</h2>
-        <p class="muted">매물 목록을 읽지 못했습니다. 당근 공식 검색에서 확인할 수 있습니다.</p>
+        <p class="muted">검색어와 맞는 중고 매물이 없습니다. 일부만 겹치는 글은 제외했습니다.</p>
         <div class="actions">
           <a class="btn" href="${result.official.daangn}" target="_blank" rel="noopener">당근에서 검색</a>
         </div>

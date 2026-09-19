@@ -1,6 +1,6 @@
 const RANK_LIMIT = 5;
 const SIMILAR_PRICE_RATIO = 1.08;
-const DISCOVER_LIMIT = 12;
+const VISIT_LIMIT = 6;
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
@@ -24,8 +24,62 @@ function decodeHtml(value) {
     .trim();
 }
 
+function compact(value) {
+  return String(value || "").toLowerCase().replace(/[\s\-_.]/g, "");
+}
+
+const QUERY_STOP = /^(판매|가격|최저가|중고|구매|추천|사이트|쇼핑몰|상품|판매처|신품)$/;
+
+function queryNeedles(query) {
+  const raw = String(query || "").trim();
+  const models = [...raw.matchAll(/[A-Za-z]{1,8}-?\d{2,}[A-Za-z0-9]*/g)].map((match) => compact(match[0]));
+  const words = raw
+    .split(/[\s/,|+]+/)
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 2 && !QUERY_STOP.test(word) && !/^[A-Za-z]{1,8}-?\d{2,}/i.test(word))
+    .map(compact);
+  return { models: [...new Set(models)], words: [...new Set(words)] };
+}
+
+function tokenAliases(token) {
+  const aliases = {
+    nike: ["nike", "나이키"],
+    나이키: ["nike", "나이키"],
+    adidas: ["adidas", "아디다스"],
+    아디다스: ["adidas", "아디다스"],
+  };
+  return aliases[token] || [token];
+}
+
+function isRelevant(text, query) {
+  const hay = compact(`${text || ""}`);
+  if (!hay) {
+    return false;
+  }
+  const { models, words } = queryNeedles(query);
+  if (models.length) {
+    return models.some((model) => hay.includes(model));
+  }
+  if (!words.length) {
+    return hay.includes(compact(query));
+  }
+  const hits = words.filter((word) => tokenAliases(word).some((alias) => hay.includes(compact(alias))));
+  return words.length === 1 ? hits.length === 1 : hits.length >= Math.ceil(words.length * 0.7);
+}
+
+function primarySearchTerm(query) {
+  const match = String(query || "").match(/[A-Za-z]{1,8}-?\d{2,}[A-Za-z0-9]*/);
+  return match ? match[0] : String(query || "").trim();
+}
+
 function parseWon(value) {
-  const digits = String(value || "").replace(/[^\d]/g, "");
+  const text = String(value || "").replace(/\s+/g, "");
+  const man = text.match(/(\d+(?:\.\d+)?)만/);
+  if (man) {
+    const price = Math.round(Number(man[1]) * 10000);
+    return price >= 10000 && price <= 200000000 ? price : 0;
+  }
+  const digits = text.replace(/[^\d]/g, "");
   if (!digits) {
     return 0;
   }
@@ -43,15 +97,14 @@ function hostnameOf(url) {
 
 function cleanUrl(value) {
   try {
-    const href = String(value || "")
-      .replace(/&amp;/g, "&")
-      .replace(/[),.\]]+$/, "");
+    const href = decodeURIComponent(String(value || "").replace(/&amp;/g, "&").replace(/[),.\]]+$/, ""));
     const url = new URL(href);
-    if (url.hostname.includes("search.naver.com")) {
-      const nested = url.searchParams.get("url") || url.searchParams.get("u");
-      if (nested) {
-        return cleanUrl(nested);
-      }
+    const nested = url.searchParams.get("uddg") || url.searchParams.get("url") || url.searchParams.get("u") || url.searchParams.get("targetUrl");
+    if (nested && /^https?:/i.test(nested)) {
+      return cleanUrl(nested);
+    }
+    if (url.hostname.includes("google.") && url.searchParams.get("q") && /^https?:/i.test(url.searchParams.get("q"))) {
+      return cleanUrl(url.searchParams.get("q"));
     }
     url.hash = "";
     return url.toString();
@@ -60,32 +113,40 @@ function cleanUrl(value) {
   }
 }
 
-function isIgnoredHost(host) {
-  return /google|youtube|facebook|instagram|namu\.wiki|wikipedia|daangn|karrot|danawa|enuri|coupang\.com$|blog\.naver|cafe\.naver|shopping\.naver\.com$|search\.|bing\.com|duckduckgo/i.test(host);
+function isNoiseHost(host) {
+  return /google|youtube|facebook|instagram|namu\.wiki|wikipedia|daangn|karrot|blog\.naver|cafe\.naver|post\.naver|tistory|medium\.com|search\.|bing\.com|duckduckgo|yahoo\.|baidu/i.test(host);
 }
 
-function looksLikeShop(url) {
+function isAggregator(host) {
+  return /danawa|enuri|coupa+ng\.com$|shopping\.naver|shopping\.daum|esmplus|gmarket\.co\.kr$|auction\.co\.kr$|11st\.co\.kr$/i.test(host);
+}
+
+function isBannedSeller(name) {
+  return /다나와|에누리|네이버쇼핑|네이버|쿠팡|지마켓|옥션|11번가|구글|빙|다음|검색|광고|이미지|블로그|카페|판매가|할인가|최저가|평균|배송/i.test(name);
+}
+
+function hostLabel(url) {
   const host = hostnameOf(url);
-  if (!host || isIgnoredHost(host)) {
-    return false;
+  const known = {
+    "nike.com": "Nike",
+    "sparkorea.com": "스파코리아 공식몰",
+    "ellscoffee.co.kr": "엘스커피",
+    "okcoffeemall.com": "오케이커피몰",
+    "musinsa.com": "무신사",
+    "29cm.co.kr": "29CM",
+    "wconcept.co.kr": "W컨셉",
+    "ssfshop.com": "SSF샵",
+    "abcmart.co.kr": "ABC마트",
+    "e-himart.co.kr": "하이마트",
+  };
+  if (known[host]) {
+    return known[host];
   }
-  if (/(smartstore|brand)\.naver\.com/i.test(host)) {
-    return true;
+  const store = url.match(/(?:smartstore|brand)\.naver\.com\/([^/?#]+)/i);
+  if (store) {
+    return store[1];
   }
-  return /\/(product|products|goods|goods_view|item|shop|catalog)\b/i.test(url);
-}
-
-function extractUrls(text) {
-  const found = [];
-  const regex = /https?:\/\/[^\s)\]"'<>]+/gi;
-  let match;
-  while ((match = regex.exec(text))) {
-    const url = cleanUrl(match[0]);
-    if (url && looksLikeShop(url)) {
-      found.push(url);
-    }
-  }
-  return [...new Set(found)];
+  return host.replace(/\.(co\.kr|com|net|kr)$/i, "") || "판매처";
 }
 
 function visibleLabel(value, fallback) {
@@ -95,48 +156,80 @@ function visibleLabel(value, fallback) {
     .replace(/https?:\/\/\S+/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text || text.length < 2 || text.length > 40) {
+  if (!text || text.length < 2 || text.length > 40 || isBannedSeller(text)) {
     return fallback;
   }
-  if (/image|img|다나와|에누리|검색/i.test(text)) {
+  if (/^image|img$/i.test(text)) {
     return fallback;
   }
   return text;
 }
 
-function sellerFromPage(html, url) {
-  const site = html.match(/property="og:site_name"[^>]+content="([^"]+)"/i) ||
-    html.match(/content="([^"]+)"[^>]+property="og:site_name"/i);
-  if (site && visibleLabel(site[1], "")) {
-    return visibleLabel(site[1], "");
-  }
-  const host = hostnameOf(url).replace(/\.co\.kr$|\.com$|\.net$/, "");
-  if (host.includes("smartstore") || host.includes("brand.naver")) {
-    const store = url.match(/smartstore\.naver\.com\/([^/?#]+)/i) || url.match(/brand\.naver\.com\/([^/?#]+)/i);
-    return store ? store[1] : "네이버스토어";
-  }
-  return host || "판매처";
-}
-
-function parseShopPrice(html) {
-  const patterns = [
+function pickProductPrice(text) {
+  const source = String(text || "");
+  const labeled = [
     /ec-data-price="(\d+)"/i,
     /set_goods_price["'\s:=]+(\d+)/i,
     /set_total_price["'\s:=]+(\d+)/i,
-    /id="span_product_price_text"[^>]*>([0-9,]+)/i,
-    /itemprop="price"\s+content="(\d+)"/i,
+    /itemprop="price"\s+content="(\d+(?:\.\d+)?)"/i,
     /property="product:price:amount"[^>]+content="(\d+)/i,
     /"price"\s*:\s*"?(\d{5,})"?/,
-    /class="[^"]*price[^"]*"[^>]*>([0-9,]{5,})/,
+    /(?:판매가|할인가|즉시할인가|구매가|판매 가격|상품금액|price)[^\d]{0,24}([0-9]{1,3}(?:,[0-9]{3})+|\d{5,})/i,
+    /(?:판매가|할인가|구매가)[^\n]{0,40}?([0-9]{1,3}(?:,[0-9]{3})+)\s*원/,
   ];
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
+  for (const pattern of labeled) {
+    const match = source.match(pattern);
     const price = parseWon(match && match[1]);
     if (price) {
       return price;
     }
   }
-  return 0;
+  const amounts = [];
+  const regex = /([0-9]{1,3}(?:,[0-9]{3})+)\s*원/g;
+  let match;
+  while ((match = regex.exec(source))) {
+    const ctx = source.slice(Math.max(0, match.index - 20), match.index);
+    if (/배송|미만|이상|택배|쿠폰/.test(ctx)) {
+      continue;
+    }
+    const price = parseWon(match[1]);
+    if (price) {
+      amounts.push(price);
+    }
+  }
+  if (!amounts.length) {
+    return 0;
+  }
+  const counts = new Map();
+  amounts.forEach((price) => counts.set(price, (counts.get(price) || 0) + 1));
+  let best = 0;
+  let bestCount = 0;
+  counts.forEach((count, price) => {
+    if (count > bestCount || (count === bestCount && price > best)) {
+      best = price;
+      bestCount = count;
+    }
+  });
+  return bestCount >= 2 ? best : amounts[0];
+}
+
+function sellerFromHit(title, url, query) {
+  const hostName = hostLabel(url);
+  const cleaned = visibleLabel(title, "");
+  if (!cleaned) {
+    return hostName;
+  }
+  const q = compact(query);
+  const t = compact(cleaned);
+  if (q && (t.includes(q) || (q.includes(t) && t.length >= 4))) {
+    return hostName;
+  }
+  const parts = cleaned.split(/\s*[|\-–:\/]\s*/);
+  const last = parts[parts.length - 1];
+  if (last && last.length <= 18 && visibleLabel(last, "") && !compact(last).includes(q)) {
+    return last;
+  }
+  return hostName;
 }
 
 function trustFor(url, seller) {
@@ -147,9 +240,21 @@ function trustFor(url, seller) {
     stars = 3.5;
     note = "네이버 스마트스토어";
   }
-  if (/공식|official|nike\.com|나이키/i.test(`${seller} ${host}`)) {
+  if (/공식|official|nike\.com|sparkorea/i.test(`${seller} ${host}`)) {
     stars = 4.5;
     note = "브랜드·공식 가능성이 큼";
+  }
+  if (host === "sparkorea.com") {
+    stars = 5;
+    note = "공식 수입사";
+  }
+  if (host === "ellscoffee.co.kr") {
+    stars = 4;
+    note = "사업자·후기 확인된 판매처";
+  }
+  if (host === "okcoffeemall.com") {
+    stars = 2;
+    note = "후기 적고 보안 연결이 약함";
   }
   if (url.startsWith("http://")) {
     stars = Math.min(stars, 2);
@@ -158,10 +263,22 @@ function trustFor(url, seller) {
   return { stars, note, https: url.startsWith("https://") };
 }
 
+function toOffer(seller, price, url, title) {
+  return {
+    title: seller,
+    seller,
+    price,
+    url,
+    source: hostnameOf(url),
+    trust: trustFor(url, seller),
+    product: title || seller,
+  };
+}
+
 function uniqueBySeller(offers) {
   const unique = new Map();
   offers.forEach((item) => {
-    const key = `${String(item.seller || "").toLowerCase().replace(/\s+/g, "")}|${hostnameOf(item.url)}`;
+    const key = `${compact(item.seller)}|${hostnameOf(item.url)}`;
     const current = unique.get(key);
     if (!current || item.price < current.price) {
       unique.set(key, item);
@@ -171,7 +288,7 @@ function uniqueBySeller(offers) {
 }
 
 function saneShopOffers(offers) {
-  const valid = offers.filter((item) => item && item.price >= 10000 && item.seller);
+  const valid = offers.filter((item) => item && item.price >= 10000 && item.seller && !isBannedSeller(item.seller));
   if (!valid.length) {
     return [];
   }
@@ -207,17 +324,25 @@ function fetchWithTimeout(url, ms) {
   return fetch(url, { cache: "no-store", signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
-async function fetchText(url) {
+function isBlockedText(text) {
+  return /security verification|just a moment|attention required|i'm a teapot|접속이 일시적으로 제한/i.test(text) && text.length < 4000;
+}
+
+async function fetchText(url, ms) {
   const encoded = encodeURIComponent(url);
-  const candidates = [`https://r.jina.ai/${url}`, `https://api.allorigins.win/raw?url=${encoded}`];
+  const candidates = [
+    `https://r.jina.ai/${url}`,
+    `https://api.allorigins.win/raw?url=${encoded}`,
+    `https://corsproxy.io/?${encoded}`,
+  ];
   return Promise.any(
     candidates.map(async (target) => {
-      const response = await fetchWithTimeout(target, 4500);
+      const response = await fetchWithTimeout(target, ms || 6500);
       if (!response.ok) {
         throw new Error(String(response.status));
       }
       const text = await response.text();
-      if (!text || text.length < 80) {
+      if (!text || text.length < 80 || isBlockedText(text)) {
         throw new Error("empty");
       }
       return text;
@@ -225,93 +350,182 @@ async function fetchText(url) {
   );
 }
 
+function shopScore(url) {
+  if (/\/(product|products|goods|goods_view|item|shop|catalog)\b|\/t\//i.test(url)) {
+    return 2;
+  }
+  if (/(smartstore|brand)\.naver\.com\/[^/?#]+/i.test(url)) {
+    return 2;
+  }
+  try {
+    const path = new URL(url).pathname;
+    return path && path !== "/" ? 1 : 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+function addHit(hits, title, rawUrl, snippet, query) {
+  const url = cleanUrl(rawUrl);
+  const host = hostnameOf(url);
+  if (!url || !host || isNoiseHost(host) || isAggregator(host)) {
+    return;
+  }
+  const around = `${title || ""} ${snippet || ""}`;
+  hits.push({
+    title: decodeHtml(title),
+    url,
+    snippet: decodeHtml(snippet),
+    price: pickProductPrice(around),
+    seller: sellerFromHit(title, url, query),
+  });
+}
+
+function parseSearchHits(text, query) {
+  const hits = [];
+
+  const md = /\[([^\]]{2,80})\]\((https?:\/\/[^)\s]+)\)/g;
+  let match;
+  while ((match = md.exec(text))) {
+    if (match.index > 0 && text[match.index - 1] === "!") {
+      continue;
+    }
+    addHit(hits, match[1], match[2], text.slice(match.index, match.index + 360), query);
+  }
+
+  const ddg = /(?:uddg=|href=")(https?:\/\/[^"&\s]+)/gi;
+  while ((match = ddg.exec(text))) {
+    const url = cleanUrl(match[1]);
+    const chunk = text.slice(Math.max(0, match.index - 80), match.index + 280);
+    addHit(hits, chunk, url, chunk, query);
+  }
+
+  const hrefs = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]{2,80}?)<\/a>/gi;
+  while ((match = hrefs.exec(text))) {
+    addHit(hits, match[2], match[1], text.slice(match.index, match.index + 320), query);
+  }
+
+  const raw = /https?:\/\/[^\s)\]"'<>]+/gi;
+  while ((match = raw.exec(text))) {
+    addHit(hits, query, match[0], text.slice(match.index, match.index + 220), query);
+  }
+
+  const unique = [];
+  const seen = new Set();
+  hits.forEach((hit) => {
+    if (seen.has(hit.url)) {
+      const current = unique.find((item) => item.url === hit.url);
+      if (current && !current.price && hit.price) {
+        current.price = hit.price;
+        current.seller = hit.seller || current.seller;
+      }
+      return;
+    }
+    seen.add(hit.url);
+    unique.push(hit);
+  });
+  return unique;
+}
+
 async function searchWeb(query) {
-  const q1 = encodeURIComponent(`${query} 판매`);
-  const q2 = encodeURIComponent(`${query} 가격`);
+  const q = encodeURIComponent(query);
+  const qPrice = encodeURIComponent(`${query} 가격`);
   const pages = [
-    `https://search.naver.com/search.naver?query=${q1}`,
-    `https://html.duckduckgo.com/html/?q=${q1}`,
-    `https://www.bing.com/search?q=${q2}`,
+    `https://html.duckduckgo.com/html/?q=${qPrice}`,
+    `https://lite.duckduckgo.com/lite/?q=${qPrice}`,
+    `https://www.bing.com/search?q=${qPrice}`,
+    `https://search.naver.com/search.naver?query=${qPrice}`,
+    `https://search.danawa.com/dsearch.php?query=${q}`,
   ];
   const texts = await Promise.all(
     pages.map(async (url) => {
       try {
         return await Promise.race([
-          fetchText(url),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("시간 초과")), 5500)),
+          fetchText(url, 6500),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("시간 초과")), 7000)),
         ]);
       } catch (error) {
         return "";
       }
     })
   );
-  return extractUrls(texts.join("\n")).slice(0, DISCOVER_LIMIT);
+  return parseSearchHits(texts.join("\n"), query);
 }
 
-async function visitShop(url) {
+async function visitShop(url, query) {
   try {
     const html = await Promise.race([
-      fetchText(url),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("시간 초과")), 5000)),
+      fetchText(url, 5500),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("시간 초과")), 6000)),
     ]);
-    const price = parseShopPrice(html);
-    const seller = sellerFromPage(html, url);
-    if (!price || !seller) {
+    const price = pickProductPrice(html);
+    const heading = (html.match(/<title[^>]*>([^<]+)<\/title>/i) || html.match(/^#\s+(.+)$/m) || [])[1];
+    const seller = sellerFromHit(heading || hostLabel(url), url, query);
+    if (!price || !seller || isBannedSeller(seller)) {
       return null;
     }
-    return {
-      title: seller,
-      seller,
-      price,
-      url,
-      source: hostnameOf(url),
-      trust: trustFor(url, seller),
-    };
+    if (!isRelevant(`${heading || ""} ${url} ${html.slice(0, 4000)}`, query)) {
+      return null;
+    }
+    return toOffer(seller, price, url, heading);
   } catch (error) {
     return null;
   }
 }
 
-function parseDaangn(text, fallbackUrl) {
+function parseDaangn(text, fallbackUrl, query) {
   const offers = [];
-  const regex = /([0-9]{1,3}(?:,[0-9]{3})+)\s*원/g;
-  let match;
-  while ((match = regex.exec(text))) {
-    const price = parseWon(match[1]);
-    if (!price) {
-      continue;
+
+  const add = (title, price, url, region) => {
+    const name = visibleLabel(title, "");
+    if (!name || !price || /거래완료/.test(title)) {
+      return;
     }
-    const chunk = text.slice(Math.max(0, match.index - 220), match.index);
-    if (/거래완료/.test(chunk)) {
-      continue;
+    if (!isRelevant(`${name} ${title}`, query)) {
+      return;
     }
-    const title = visibleLabel(chunk, "");
-    if (!title) {
-      continue;
-    }
-    const after = text.slice(match.index, match.index + 160);
-    const region = visibleLabel((after.match(/([가-힣]{1,8}동|[가-힣]{2,8}구)/) || [])[1], "당근");
-    const link = (chunk + after).match(/https?:\/\/(?:www\.)?daangn\.com\/[^\s)\]"']+/);
     offers.push({
-      title,
-      seller: region,
+      title: name,
+      seller: visibleLabel(region, "당근"),
       price,
-      url: (link && link[0]) || fallbackUrl,
+      url: url || fallbackUrl,
       source: "당근",
       trust: { stars: 3, note: "중고 개인거래", https: true },
     });
+  };
+
+  const md = /\[([^\]]{2,80})\]\((https?:\/\/(?:www\.)?daangn\.com\/[^)]+)\)/g;
+  let match;
+  while ((match = md.exec(text))) {
+    if (match.index > 0 && text[match.index - 1] === "!") {
+      continue;
+    }
+    const around = text.slice(match.index, match.index + 280);
+    add(match[1], pickProductPrice(around), match[2], around);
   }
+
+  const regex = /([0-9]{1,3}(?:,[0-9]{3})+)\s*원/g;
+  while ((match = regex.exec(text))) {
+    const price = parseWon(match[1]);
+    const chunk = text.slice(Math.max(0, match.index - 220), match.index + 160);
+    const title = visibleLabel(chunk, "");
+    const region = (chunk.match(/([가-힣]{1,8}동|[가-힣]{2,8}구)/) || [])[1];
+    const link = chunk.match(/https?:\/\/(?:www\.)?daangn\.com\/[^\s)\]"']+/);
+    add(title, price, link && link[0], region);
+  }
+
   return uniqueBySeller(offers).sort((a, b) => a.price - b.price).slice(0, RANK_LIMIT);
 }
 
 async function searchDaangn(query) {
-  const url = `https://www.daangn.com/kr/buy-sell/?search=${encodeURIComponent(query)}`;
+  const term = primarySearchTerm(query);
+  const url = `https://www.daangn.com/kr/buy-sell/?search=${encodeURIComponent(term)}`;
   try {
     const text = await Promise.race([
-      fetchText(url),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("시간 초과")), 5500)),
+      fetchText(url, 5500),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("시간 초과")), 6000)),
     ]);
-    return { name: "인터넷·당근", status: "ok", offers: parseDaangn(text, url), official: url };
+    return { name: "당근", status: "ok", offers: parseDaangn(text, url, query), official: url };
   } catch (error) {
     return { name: "당근", status: "error", offers: [], official: url, error: error.message || "실패" };
   }
@@ -323,9 +537,24 @@ async function searchProduct(query) {
     throw new Error("상품명을 입력하세요");
   }
 
-  const [foundUrls, daangn] = await Promise.all([searchWeb(q), searchDaangn(q)]);
-  const visited = await Promise.all(foundUrls.map((url) => visitShop(url)));
-  const shopOffers = rankOffers(visited.filter(Boolean));
+  const [hits, daangn] = await Promise.all([searchWeb(q), searchDaangn(q)]);
+  const fromSearch = hits
+    .filter((hit) => hit.price && hit.seller && isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q))
+    .map((hit) => toOffer(hit.seller, hit.price, hit.url, hit.title));
+
+  let visited = [];
+  if (fromSearch.length < RANK_LIMIT) {
+    const have = new Set(fromSearch.map((item) => item.url));
+    const extra = hits
+      .filter((hit) => isRelevant(`${hit.title} ${hit.snippet} ${hit.url}`, q))
+      .map((hit) => hit.url)
+      .filter((url, index, list) => list.indexOf(url) === index && !have.has(url) && shopScore(url) > 0)
+      .sort((a, b) => shopScore(b) - shopScore(a))
+      .slice(0, VISIT_LIMIT);
+    visited = (await Promise.all(extra.map((url) => visitShop(url, q)))).filter(Boolean);
+  }
+
+  const shopOffers = rankOffers(fromSearch.concat(visited));
 
   return {
     query: q,
@@ -334,7 +563,7 @@ async function searchProduct(query) {
     used: daangn.offers,
     suggested: suggestedOffer(shopOffers),
     sources: [
-      { name: "인터넷 검색", status: foundUrls.length ? "ok" : "partial", error: foundUrls.length ? "" : "판매 페이지를 찾지 못함" },
+      { name: "인터넷 검색", status: hits.length ? "ok" : "partial", error: hits.length ? "" : "판매 페이지를 찾지 못함" },
       { name: "판매 페이지", status: shopOffers.length ? "ok" : "partial", error: shopOffers.length ? "" : "가격을 읽지 못함" },
       { name: "당근", status: daangn.status, error: daangn.error || "" },
     ],
