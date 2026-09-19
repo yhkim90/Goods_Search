@@ -1,0 +1,29 @@
+{
+  "products": [
+    {
+      "id": "sp-800",
+      "name": "SP-800",
+      "officialPrice": 1500000,
+      "aliases": ["SP-800", "SP800", "SP 800"]
+    },
+    {
+      "id": "sp-800a",
+      "name": "SP-800A",
+      "officialPrice": 1650000,
+      "aliases": ["SP-800A", "SP800A", "SP 800A", "SP-800 A"]
+    }
+  ],
+  "excludeKeywords": [
+    "SUCCESS",
+    "석세스",
+    "썩쌔스",
+    "훅",
+    "휘퍼",
+    "스크래퍼",
+    "가이드망",
+    "부품",
+    "SP-502",
+    "SP-100A",
+    "SP-200A"
+  ]
+}

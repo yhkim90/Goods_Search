@@ -1,0 +1,77 @@
+{
+  "updatedAt": "2026-09-19T10:00:00+09:00",
+  "items": [
+    {
+      "id": "official:sp-800",
+      "productId": "sp-800",
+      "sellerId": "official",
+      "sellerName": "스파코리아 공식몰",
+      "title": "SP-800",
+      "price": 1500000,
+      "listPrice": 1500000,
+      "shippingFee": 0,
+      "url": "https://sparkorea.com/product/sp-800-%ED%99%94%EC%9D%B4%ED%8A%B8/239/",
+      "collectedAt": "2026-09-19T10:00:00+09:00"
+    },
+    {
+      "id": "official:sp-800a",
+      "productId": "sp-800a",
+      "sellerId": "official",
+      "sellerName": "스파코리아 공식몰",
+      "title": "SP-800A",
+      "price": 1650000,
+      "listPrice": 1650000,
+      "shippingFee": 0,
+      "url": "https://sparkorea.com/product/sp-800a/243/",
+      "collectedAt": "2026-09-19T10:00:00+09:00"
+    },
+    {
+      "id": "ellscoffee:sp-800",
+      "productId": "sp-800",
+      "sellerId": "ellscoffee",
+      "sellerName": "엘스커피",
+      "title": "스파믹서 SP-800 버티컬 믹서기",
+      "price": 1500000,
+      "listPrice": 1500000,
+      "shippingFee": 0,
+      "url": "https://ellscoffee.co.kr/product/%EC%8A%A4%ED%8C%8C%EB%AF%B9%EC%84%9C-sp-800-%EB%B2%84%ED%8B%B0%EC%BB%AC-%EB%AF%B9%EC%84%9C%EA%B8%B0/495/",
+      "collectedAt": "2026-09-19T10:00:00+09:00"
+    },
+    {
+      "id": "ellscoffee:sp-800a",
+      "productId": "sp-800a",
+      "sellerId": "ellscoffee",
+      "sellerName": "엘스커피",
+      "title": "스파믹서 SP-800A 버티컬 믹서기",
+      "price": 1650000,
+      "listPrice": 1650000,
+      "shippingFee": 0,
+      "url": "https://ellscoffee.co.kr/product/%EC%8A%A4%ED%8C%8C%EB%AF%B9%EC%84%9C-sp-800a-%EB%B2%84%ED%8B%B0%EC%BB%AC-%EB%AF%B9%EC%84%9C%EA%B8%B0/307/",
+      "collectedAt": "2026-09-19T10:00:00+09:00"
+    },
+    {
+      "id": "okcoffeemall:sp-800",
+      "productId": "sp-800",
+      "sellerId": "okcoffeemall",
+      "sellerName": "오케이커피몰",
+      "title": "스파 SP-800 버티컬믹서기",
+      "price": 990000,
+      "listPrice": 990000,
+      "shippingFee": 0,
+      "url": "http://okcoffeemall.com/goods/goods_view.php?goodsNo=2119",
+      "collectedAt": "2026-09-19T10:00:00+09:00"
+    },
+    {
+      "id": "okcoffeemall:sp-800a",
+      "productId": "sp-800a",
+      "sellerId": "okcoffeemall",
+      "sellerName": "오케이커피몰",
+      "title": "스파 SP-800A 버티컬믹서기",
+      "price": 1180000,
+      "listPrice": 1180000,
+      "shippingFee": 0,
+      "url": "http://okcoffeemall.com/goods/goods_view.php?goodsNo=2118",
+      "collectedAt": "2026-09-19T10:00:00+09:00"
+    }
+  ]
+}

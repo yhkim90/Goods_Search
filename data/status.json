@@ -1,0 +1,35 @@
+{
+  "lastRunAt": "2026-09-19T10:00:00+09:00",
+  "lastSuccessAt": "2026-09-19T10:00:00+09:00",
+  "intervalMinutes": 60,
+  "collectors": [
+    {
+      "id": "official",
+      "name": "공식몰",
+      "status": "ok",
+      "message": "초기 조사 가격",
+      "count": 2
+    },
+    {
+      "id": "ellscoffee",
+      "name": "엘스커피",
+      "status": "ok",
+      "message": "초기 조사 가격",
+      "count": 2
+    },
+    {
+      "id": "okcoffeemall",
+      "name": "오케이커피몰",
+      "status": "ok",
+      "message": "초기 조사 가격",
+      "count": 2
+    },
+    {
+      "id": "daangn",
+      "name": "당근",
+      "status": "skipped",
+      "message": "공식 API 없음. 자동 수집하지 않음",
+      "count": 0
+    }
+  ]
+}

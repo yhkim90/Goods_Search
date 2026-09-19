@@ -1,0 +1,46 @@
+{
+  "items": [
+    {
+      "date": "2026-09-19",
+      "sellerId": "official",
+      "sellerName": "스파코리아 공식몰",
+      "productId": "sp-800",
+      "price": 1500000
+    },
+    {
+      "date": "2026-09-19",
+      "sellerId": "official",
+      "sellerName": "스파코리아 공식몰",
+      "productId": "sp-800a",
+      "price": 1650000
+    },
+    {
+      "date": "2026-09-19",
+      "sellerId": "ellscoffee",
+      "sellerName": "엘스커피",
+      "productId": "sp-800",
+      "price": 1500000
+    },
+    {
+      "date": "2026-09-19",
+      "sellerId": "ellscoffee",
+      "sellerName": "엘스커피",
+      "productId": "sp-800a",
+      "price": 1650000
+    },
+    {
+      "date": "2026-09-19",
+      "sellerId": "okcoffeemall",
+      "sellerName": "오케이커피몰",
+      "productId": "sp-800",
+      "price": 990000
+    },
+    {
+      "date": "2026-09-19",
+      "sellerId": "okcoffeemall",
+      "sellerName": "오케이커피몰",
+      "productId": "sp-800a",
+      "price": 1180000
+    }
+  ]
+}
