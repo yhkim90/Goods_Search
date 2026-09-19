@@ -58,25 +58,50 @@ function visibleLabel(value, fallback) {
 }
 
 function matchProduct(products, query) {
-  const needle = normalizeKey(query);
+  const needles = [
+    normalizeKey(query),
+    normalizeKey(query).replace(/^(spa|spar|스파)+/, ""),
+  ].filter(Boolean);
   let best = null;
   let bestScore = 0;
   (products || []).forEach((product) => {
     const names = [product.id, product.name, ...(product.aliases || [])].map(normalizeKey);
     names.forEach((name) => {
-      let score = 0;
-      if (name === needle) {
-        score = 100 + name.length;
-      } else if (name.length >= 6 && needle.includes(name)) {
-        score = name.length;
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        best = product;
-      }
+      needles.forEach((needle) => {
+        let score = 0;
+        if (name === needle) {
+          score = 100 + name.length;
+        } else if (name.length >= 6 && needle.includes(name)) {
+          score = name.length;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          best = product;
+        }
+      });
     });
   });
   return best;
+}
+
+function shopsFromPrices(priceItems) {
+  const bySeller = new Map();
+  (priceItems || []).forEach((item) => {
+    if (!item.sellerId || !item.url) {
+      return;
+    }
+    if (!bySeller.has(item.sellerId)) {
+      bySeller.set(item.sellerId, {
+        id: item.sellerId,
+        name: item.sellerName || item.sellerId,
+        products: {},
+      });
+    }
+    if (item.productId) {
+      bySeller.get(item.sellerId).products[item.productId] = item.url;
+    }
+  });
+  return [...bySeller.values()];
 }
 
 function shopTrust(shop, seller) {
@@ -335,14 +360,21 @@ async function searchProduct(query) {
   }
 
   const [shopsDoc, productsDoc, sellersDoc, pricesDoc] = await Promise.all([
-    loadEngineJson("shops.json"),
+    loadEngineJson("shops.json").catch(() => ({ items: [] })),
     loadEngineJson("products.json").catch(() => ({ products: [] })),
     loadEngineJson("sellers.json").catch(() => ({ items: [] })),
     loadEngineJson("prices.json").catch(() => ({ items: [] })),
   ]);
 
   const product = matchProduct(productsDoc.products, q);
-  const shops = shopsDoc.items || [];
+  const savedShops = shopsFromPrices(pricesDoc.items || []);
+  const listed = new Map((shopsDoc.items || []).map((item) => [item.id, item]));
+  savedShops.forEach((item) => {
+    if (!listed.has(item.id)) {
+      listed.set(item.id, item);
+    }
+  });
+  const shops = [...listed.values()];
   const sellerMap = Object.fromEntries((sellersDoc.items || []).map((item) => [item.id, item]));
 
   const [shopResults, daangn] = await Promise.all([
