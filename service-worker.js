@@ -1,8 +1,9 @@
-const CACHE_NAME = "sp-watch-v11";
+const CACHE_NAME = "goods-search-v13";
 const SHELL = [
   "./",
   "./index.html",
   "./css/style.css",
+  "./js/engine.js",
   "./js/app.js",
   "./manifest.json",
   "./icons/icon-192.png",
@@ -28,16 +29,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") {
     return;
   }
-
-  const url = new URL(request.url);
-  const isData = url.pathname.includes("/data/");
-
-  if (isData) {
-    event.respondWith(networkFirst(request));
-    return;
-  }
-
-  event.respondWith(cacheFirst(request));
+  event.respondWith(networkFirst(request));
 });
 
 async function networkFirst(request) {
@@ -53,15 +45,4 @@ async function networkFirst(request) {
     }
     throw error;
   }
-}
-
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) {
-    return cached;
-  }
-  const response = await fetch(request);
-  const cache = await caches.open(CACHE_NAME);
-  cache.put(request, response.clone());
-  return response;
 }

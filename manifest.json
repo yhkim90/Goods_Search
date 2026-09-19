@@ -1,7 +1,7 @@
 {
-  "name": "SP WATCH",
-  "short_name": "SP WATCH",
-  "description": "SP-800 / SP-800A 매물·할인 모니터링",
+  "name": "Goods Search",
+  "short_name": "Goods Search",
+  "description": "상품 최저가 5곳과 당근 매물, 업체 신뢰도 검색",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="SP WATCH">
-  <meta name="description" content="SP-800A / SP-800 매물과 할인 모니터링">
-  <title>SP WATCH</title>
+  <meta name="apple-mobile-web-app-title" content="Goods Search">
+  <meta name="description" content="상품 최저가 5곳과 당근 매물, 업체 신뢰도 검색">
+  <title>Goods Search</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -23,10 +23,11 @@
 <body>
   <main class="app">
     <header class="hero">
-      <p class="brand">SP WATCH</p>
+      <p class="brand">GOODS SEARCH</p>
       <form class="search-form" id="search-form" role="search">
         <label class="sr-only" for="product-query">상품명</label>
-        <input id="product-query" class="search-input" type="search" name="q" placeholder="상품명 검색" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <input id="product-query" class="search-input" type="search" name="q" placeholder="상품명 입력" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="submit" id="search-btn" class="search-btn">검색</button>
       </form>
       <div class="toolbar">
         <button type="button" id="refresh-btn" class="refresh-btn">새로고침</button>
@@ -35,24 +36,16 @@
       <p class="refresh-note" id="refresh-note"></p>
     </header>
 
-    <section id="alert-stack" class="stack"></section>
-
     <section id="price-stack" class="stack"></section>
-
     <section id="daangn-stack"></section>
-
-    <section class="summary" id="summary">
-      <div><span id="count-new">0</span><small>최근 매물</small></div>
-      <div><span id="count-drop">0</span><small>가격인하</small></div>
-      <div><span id="count-sale">0</span><small>할인판매</small></div>
-    </section>
 
     <footer class="status">
       <p class="status-title">마지막 검색</p>
-      <p class="status-time" id="status-time">-</p>
-      <ul id="collector-list"></ul>
+      <p class="status-time" id="status-time">상품명을 입력하세요</p>
+      <ul id="source-list"></ul>
     </footer>
   </main>
+  <script src="js/engine.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

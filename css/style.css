@@ -61,11 +61,16 @@ body {
 }
 
 .search-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
 }
 
 .search-input {
   width: 100%;
+  min-width: 0;
+  flex: 1;
   height: 46px;
   padding: 0 14px;
   border: 1px solid var(--line);
@@ -87,6 +92,23 @@ body {
 .search-input:focus {
   outline: none;
   border-color: #5a5a62;
+}
+
+.search-btn {
+  flex-shrink: 0;
+  height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #f5f5f7;
+  color: #0b0b0c;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+}
+
+.search-btn:disabled {
+  opacity: 0.55;
 }
 
 .toolbar {
