@@ -25,14 +25,14 @@
     <header class="hero">
       <div class="topbar">
         <p class="brand">GOODS SEARCH</p>
-        <button type="button" id="refresh-btn" class="refresh-btn">새로고침</button>
+        <button type="button" id="refresh-btn" class="refresh-btn">새로 고침</button>
       </div>
       <form class="search-form" id="search-form" role="search">
         <label class="sr-only" for="product-query">상품명</label>
         <input id="product-query" class="search-input" type="search" name="q" placeholder="상품명 입력" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
         <button type="submit" id="search-btn" class="search-btn">검색</button>
       </form>
-      <p class="checked" id="last-check">-</p>
+      <p class="last-search" id="last-search">마지막 검색 : - / -</p>
       <p class="refresh-note" id="refresh-note"></p>
     </header>
 
@@ -44,8 +44,6 @@
     <section id="used-panel" class="stack" hidden></section>
 
     <footer class="status">
-      <p class="status-title">마지막 검색</p>
-      <p class="status-time" id="status-time">상품명을 입력하세요</p>
       <ul id="source-list"></ul>
     </footer>
   </main>

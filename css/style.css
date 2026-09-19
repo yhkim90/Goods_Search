@@ -37,15 +37,14 @@ body {
 }
 
 .hero {
-  padding: 8px 4px 18px;
+  padding: 8px 4px 12px;
 }
 
 .topbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .brand {
@@ -79,10 +78,10 @@ body {
   width: 100%;
   min-width: 0;
   flex: 1;
-  height: 46px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 12px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--card);
   color: var(--text);
   font-size: 16px;
@@ -104,13 +103,13 @@ body {
 
 .search-btn {
   flex-shrink: 0;
-  height: 46px;
-  padding: 0 16px;
+  height: 36px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #f5f5f7;
   color: #0b0b0c;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   font-family: inherit;
 }
@@ -119,11 +118,10 @@ body {
   opacity: 0.55;
 }
 
-.checked {
+.last-search {
   margin: 8px 0 0;
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--muted);
 }
 
@@ -157,15 +155,14 @@ body {
 }
 
 .refresh-btn {
-  flex-shrink: 0;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #242428;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  font-weight: 700;
   font-family: inherit;
 }
 
@@ -174,10 +171,13 @@ body {
 }
 
 .refresh-note {
-  margin: 8px 0 0;
-  min-height: 1.2em;
+  margin: 4px 0 0;
   font-size: 12px;
   color: var(--muted);
+}
+
+.refresh-note:empty {
+  display: none;
 }
 
 .stack {

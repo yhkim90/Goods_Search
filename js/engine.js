@@ -193,31 +193,34 @@ function suggestedOffer(ranked) {
   return pick;
 }
 
+function fetchWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { cache: "no-store", signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function fetchText(url) {
   const encoded = encodeURIComponent(url);
   const candidates = [
-    url,
     `https://r.jina.ai/${url}`,
     `https://api.allorigins.win/raw?url=${encoded}`,
-    `https://corsproxy.io/?${encoded}`,
   ];
-  let lastError = "연결 실패";
-  for (const target of candidates) {
-    try {
-      const response = await fetch(target, { cache: "no-store" });
-      if (!response.ok) {
-        lastError = `${response.status}`;
-        continue;
-      }
-      const text = await response.text();
-      if (text && text.length > 80) {
-        return text;
-      }
-    } catch (error) {
-      lastError = error.message || lastError;
+  const attempts = candidates.map(async (target) => {
+    const response = await fetchWithTimeout(target, 4500);
+    if (!response.ok) {
+      throw new Error(String(response.status));
     }
+    const text = await response.text();
+    if (!text || text.length < 80) {
+      throw new Error("empty");
+    }
+    return text;
+  });
+  try {
+    return await Promise.any(attempts);
+  } catch (error) {
+    throw new Error("시간 초과");
   }
-  throw new Error(lastError);
 }
 
 function pushOffer(list, offer) {
@@ -426,35 +429,49 @@ function parseDaangn(text, fallbackUrl) {
 }
 
 async function searchSource(name, url, parser) {
+  const failed = { name, status: "error", offers: [], html: "", error: "시간 초과" };
   try {
-    const text = await fetchText(url);
-    const offers = parser(text, url).map(withTrust);
-    return { name, status: offers.length ? "ok" : "partial", offers, error: offers.length ? "" : "가격을 읽지 못함" };
+    const result = await Promise.race([
+      (async () => {
+        const text = await fetchText(url);
+        const offers = parser(text, url).map(withTrust);
+        return {
+          name,
+          status: offers.length ? "ok" : "partial",
+          offers,
+          html: text,
+          error: offers.length ? "" : "가격을 읽지 못함",
+        };
+      })(),
+      new Promise((resolve) => setTimeout(() => resolve(failed), 6000)),
+    ]);
+    return result;
   } catch (error) {
-    return { name, status: "error", offers: [], error: error.message || "실패" };
+    return { name, status: "error", offers: [], html: "", error: error.message || "실패" };
   }
 }
 
 async function expandDanawaSellers(searchHtml) {
-  const pcodes = extractPcodes(searchHtml);
-  const collected = [];
-  await Promise.all(
-    pcodes.map(async (code) => {
-      const url = `https://prod.danawa.com/info/?pcode=${code}`;
-      try {
-        const text = await fetchText(url);
-        collected.push(...parseDanawaMalls(text, url).map(withTrust));
-      } catch (error) {
-        /* 개별몰 페이지를 못 열면 검색 결과는 그대로 사용 */
-      }
-    })
-  );
-  return {
-    name: "개별몰",
-    status: collected.length ? "ok" : pcodes.length ? "partial" : "skipped",
-    offers: collected,
-    error: collected.length ? "" : "개별 판매처를 더 열지 못함",
-  };
+  const code = extractPcodes(searchHtml)[0];
+  if (!code) {
+    return { name: "개별몰", status: "skipped", offers: [], error: "" };
+  }
+  const url = `https://prod.danawa.com/info/?pcode=${code}`;
+  try {
+    const text = await Promise.race([
+      fetchText(url),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("시간 초과")), 5000)),
+    ]);
+    const collected = parseDanawaMalls(text, url).map(withTrust);
+    return {
+      name: "개별몰",
+      status: collected.length ? "ok" : "partial",
+      offers: collected,
+      error: collected.length ? "" : "개별 판매처를 더 열지 못함",
+    };
+  } catch (error) {
+    return { name: "개별몰", status: "error", offers: [], error: error.message || "실패" };
+  }
 }
 
 async function searchProduct(query) {
@@ -481,14 +498,10 @@ async function searchProduct(query) {
     searchSource("당근", daangnUrl, parseDaangn),
   ]);
 
-  let malls = { name: "개별몰", status: "skipped", offers: [], error: "" };
-  try {
-    const searchHtml = await fetchText(danawaUrl);
-    malls = await expandDanawaSellers(searchHtml);
-  } catch (error) {
-    malls.error = error.message || "개별몰 검색 실패";
-    malls.status = "error";
-  }
+  const firstOffers = [...danawa.offers, ...enuri.offers, ...naver.offers, ...store.offers, ...st11.offers, ...gmarket.offers];
+  const malls = danawa.html && firstOffers.length < 3
+    ? await expandDanawaSellers(danawa.html)
+    : { name: "개별몰", status: firstOffers.length ? "skipped" : "partial", offers: [], error: "" };
 
   const shopOffers = rankOffers([
     ...malls.offers,

@@ -1,4 +1,4 @@
-const CACHE_NAME = "goods-search-v16";
+const CACHE_NAME = "goods-search-v18";
 const SHELL = [
   "./",
   "./index.html",

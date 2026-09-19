@@ -90,17 +90,22 @@ function setTab(name) {
   }
 }
 
+function setLastSearch(query, time) {
+  const line = document.getElementById("last-search");
+  if (!line) {
+    return;
+  }
+  line.textContent = `마지막 검색 : ${query || "-"} / ${time || "-"}`;
+}
+
 function renderResult(result) {
   const shopPanel = document.getElementById("shop-panel");
   const usedPanel = document.getElementById("used-panel");
   const tabs = document.getElementById("result-tabs");
-  const clock = document.getElementById("last-check");
-  const statusTime = document.getElementById("status-time");
   const sourceList = document.getElementById("source-list");
 
   tabs.hidden = false;
-  clock.textContent = formatClock(result.searchedAt);
-  statusTime.textContent = `${result.query}\n${formatClock(result.searchedAt)}`;
+  setLastSearch(result.query, formatClock(result.searchedAt));
   document.querySelector('[data-tab="shop"]').textContent = `신품 ${result.shops.length}`;
   document.querySelector('[data-tab="used"]').textContent = `당근 ${result.used.length}`;
 
@@ -174,11 +179,12 @@ async function runSearch() {
   } catch (error) {
     /* ignore */
   }
-  setBusy(true, true, "판매처를 검색하는 중");
+  setLastSearch(query, "검색 중");
+  setBusy(true, true, "잠시만 기다려 주세요");
   try {
     const result = await searchProduct(query);
     renderResult(result);
-    setBusy(true, false, `검색 완료 · 신품 ${result.shops.length}곳 · 당근 ${result.used.length}건`);
+    setBusy(true, false, "");
   } catch (error) {
     const shopPanel = document.getElementById("shop-panel");
     if (shopPanel) {
@@ -239,7 +245,7 @@ function bind() {
 function boot() {
   bind();
   document.getElementById("shop-panel").innerHTML = emptyState();
-  document.getElementById("last-check").textContent = "-";
+  setLastSearch("-", "-");
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register(`${BASE}service-worker.js`).catch(() => {});
   }
