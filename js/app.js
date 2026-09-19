@@ -9,6 +9,9 @@ const BASE = (() => {
 const PRODUCT_ORDER = ["sp-800a", "sp-800"];
 const PRICE_RANK_LIMIT = 5;
 const SIMILAR_PRICE_RATIO = 1.08;
+const QUERY_KEY = "sp-watch-query";
+
+let lastData = null;
 
 function productRank(productId) {
   const index = PRODUCT_ORDER.indexOf(productId);
@@ -101,8 +104,54 @@ function relativeTime(value) {
   return `${Math.floor(hour / 24)}일 전`;
 }
 
-function lowestByProduct(prices, productId) {
-  return rankedByProduct(prices, productId, {})[0];
+function readQuery() {
+  const input = document.getElementById("product-query");
+  return ((input && input.value) || "").trim();
+}
+
+function normalizeKey(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[\s\-_\/]/g, "");
+}
+
+function productMatches(product, query) {
+  if (!query) {
+    return true;
+  }
+  const needle = normalizeKey(query);
+  return [product.id, product.name, ...(product.aliases || [])].some((part) => {
+    const hay = normalizeKey(part);
+    return hay.includes(needle) || needle.includes(hay);
+  });
+}
+
+function visibleProducts(productMap, query) {
+  return Object.values(productMap)
+    .sort((a, b) => productRank(a.id) - productRank(b.id))
+    .filter((item) => productMatches(item, query));
+}
+
+function daangnUrl(keyword) {
+  return `https://www.daangn.com/kr/buy-sell/?search=${encodeURIComponent(keyword)}`;
+}
+
+function daangnHtml(keywords) {
+  const unique = [...new Set(keywords.filter(Boolean))];
+  if (!unique.length) {
+    return "";
+  }
+  const buttons = unique
+    .map((word) => `<a class="btn" href="${daangnUrl(word)}" target="_blank" rel="noopener">${word} 검색</a>`)
+    .join("");
+  return `
+    <section class="card daangn-card">
+      <div class="card-kicker">당근</div>
+      <h2>중고 매물은 당근 알림으로</h2>
+      <p class="muted">자동 수집은 하지 않습니다. 당근 키워드 알림에 상품명을 등록하세요.</p>
+      <div class="actions">${buttons}</div>
+    </section>
+  `;
 }
 
 function rankedByProduct(prices, productId, sellerMap) {
@@ -184,10 +233,27 @@ function consumerHtml(trust) {
 
 function compactStars(stars) {
   if (stars == null) {
-    return "";
+    return '<span class="rank-score">신뢰도 -</span>';
   }
   const pct = Math.max(0, Math.min(100, (Number(stars) / 5) * 100));
-  return `<span class="stars stars-sm" style="--pct:${pct}%">★★★★★</span><span class="rank-score">${stars}</span>`;
+  return `<span class="stars stars-sm" style="--pct:${pct}%">★★★★★</span><span class="rank-score">${stars} / 5</span>`;
+}
+
+function compactTrustNote(trust) {
+  if (!trust || !trust.id) {
+    return { text: "신뢰도 정보 없음", bad: false };
+  }
+  if (trust.consumer && trust.consumer.warningCount) {
+    return { text: `소비자24 피해주의보 ${trust.consumer.warningCount}건`, bad: true };
+  }
+  const reasons = trust.reasons || [];
+  if (reasons.length) {
+    return { text: reasons.slice(0, 2).join(" · "), bad: false };
+  }
+  if (trust.consumer && trust.consumer.label) {
+    return { text: trust.consumer.label, bad: false };
+  }
+  return { text: "", bad: false };
 }
 
 function rankListHtml(ranked, sellerMap, suggestedId) {
@@ -197,24 +263,31 @@ function rankListHtml(ranked, sellerMap, suggestedId) {
   const rows = ranked
     .map((item, index) => {
       const trust = sellerMap[item.sellerId] || {};
+      const note = compactTrustNote(trust);
       const suggested = item.id === suggestedId ? '<span class="rank-tag">신뢰 우선</span>' : "";
+      const noteHtml = note.text
+        ? `<span class="rank-note${note.bad ? " bad" : ""}">${note.text}</span>`
+        : "";
       return `
         <a class="rank-row" href="${item.url}" target="_blank" rel="noopener">
           <span class="rank-no">${index + 1}</span>
           <span class="rank-body">
             <span class="rank-name">${item.sellerName}${suggested}</span>
             <span class="rank-trust">${compactStars(trust.stars)}</span>
+            ${noteHtml}
           </span>
           <span class="rank-price">${won(item.price)}</span>
         </a>
       `;
     })
     .join("");
-  return `<div class="rank-list">${rows}</div>`;
+  return `<div class="rank-list rank-list-main">${rows}</div>`;
 }
 
 function cardHtml({ kicker, kickerClass, title, price, meta, delta, href, linkLabel, trust, safer, extra }) {
   const deltaHtml = delta ? `<p class="delta">${delta}</p>` : "";
+  const priceHtml = price ? `<p class="price">${price}</p>` : "";
+  const metaHtml = meta ? `<p class="meta">${meta}</p>` : "";
   const trustHtml = trust
     ? `${starsHtml(trust.stars)}${bizHtml(trust)}${consumerHtml(trust)}<p class="trust-why">${(trust.reasons || []).join(" · ")}</p>`
     : "";
@@ -226,11 +299,11 @@ function cardHtml({ kicker, kickerClass, title, price, meta, delta, href, linkLa
     : "";
   return `
     <article class="card">
-      <div class="card-kicker ${kickerClass}">${kicker}</div>
+      <div class="card-kicker ${kickerClass || ""}">${kicker}</div>
       <h2>${title}</h2>
-      <p class="price">${price}</p>
+      ${priceHtml}
       ${deltaHtml}
-      <p class="meta">${meta}</p>
+      ${metaHtml}
       ${trustHtml}
       ${saferHtml}
       ${extra || ""}
@@ -240,12 +313,16 @@ function cardHtml({ kicker, kickerClass, title, price, meta, delta, href, linkLa
 }
 
 function render(data) {
+  lastData = data;
   const { products, prices, listings, events, status, sellers } = data;
   const productMap = Object.fromEntries((products.products || []).map((item) => [item.id, item]));
   const sellerMap = Object.fromEntries((sellers.items || []).map((item) => [item.id, item]));
   const priceItems = prices.items || [];
   const listingItems = listings.items || [];
   const eventItems = events.items || [];
+  const query = readQuery();
+  const shown = visibleProducts(productMap, query);
+  const shownIds = new Set(shown.map((item) => item.id));
 
   document.getElementById("last-check").textContent = formatCheck(status.lastRunAt);
   document.getElementById("status-time").textContent = formatStatusTime(status.lastRunAt);
@@ -254,7 +331,7 @@ function render(data) {
   const alerts = [];
 
   listingItems
-    .filter((item) => item.isNew)
+    .filter((item) => item.isNew && (!query || shownIds.has(item.productId)))
     .sort((a, b) => productRank(a.productId) - productRank(b.productId))
     .slice(0, 2)
     .forEach((item) => {
@@ -272,7 +349,7 @@ function render(data) {
     });
 
   eventItems
-    .filter((item) => item.type === "PRICE_DROP")
+    .filter((item) => item.type === "PRICE_DROP" && (!query || shownIds.has(item.productId)))
     .sort((a, b) => productRank(a.productId) - productRank(b.productId))
     .slice(0, 2)
     .forEach((item) => {
@@ -292,34 +369,42 @@ function render(data) {
 
   alertStack.innerHTML = alerts.join("");
 
+  const daangnStack = document.getElementById("daangn-stack");
+  if (daangnStack) {
+    daangnStack.innerHTML = daangnHtml(query ? [query] : shown.map((item) => item.name));
+  }
+
   const priceStack = document.getElementById("price-stack");
-  priceStack.innerHTML = PRODUCT_ORDER
-    .map((productId) => {
-      const product = productMap[productId];
-      const best = lowestByProduct(priceItems, productId);
-      if (!product || !best) {
+  if (!shown.length) {
+    priceStack.innerHTML = cardHtml({
+      kicker: "검색",
+      title: query || "상품명",
+      meta: "아직 이 상품은 가격을 모으고 있지 않습니다. 당근에서 먼저 찾아보세요.",
+    });
+  } else {
+    priceStack.innerHTML = shown
+      .map((product) => {
+        const ranked = rankedByProduct(priceItems, product.id, sellerMap);
+        const best = ranked[0];
+        if (!best) {
+          return cardHtml({
+            kicker: "추천 판매처",
+            title: product.name,
+            meta: "아직 수집된 가격이 없습니다",
+          });
+        }
+        const suggested = suggestedOffer(ranked, sellerMap);
+        const rate = discountRate(product.officialPrice, best.price);
         return cardHtml({
-          kicker: product?.name || productId,
-          kickerClass: "",
-          title: "신품 최저가",
-          price: "-",
-          meta: "아직 수집된 가격이 없습니다",
+          kicker: rate > 0 ? `공식가 대비 ▼ ${rate}%` : "추천 판매처",
+          kickerClass: rate > 0 ? "kicker-sale" : "",
+          title: product.name,
+          meta: `가격순 1~${ranked.length}위 · 별점은 업체 신뢰도`,
+          extra: rankListHtml(ranked, sellerMap, suggested && suggested.id),
         });
-      }
-      const ranked = rankedByProduct(priceItems, productId, sellerMap);
-      const suggested = suggestedOffer(ranked, sellerMap);
-      const rate = discountRate(product.officialPrice, best.price);
-      return cardHtml({
-        kicker: product.name,
-        kickerClass: rate > 0 ? "kicker-sale" : "",
-        title: "신품 최저가",
-        price: won(best.price),
-        delta: rate > 0 ? `▼ ${rate}%` : "",
-        meta: `가격순 1~${ranked.length}위`,
-        extra: rankListHtml(ranked, sellerMap, suggested && suggested.id),
-      });
-    })
-    .join("");
+      })
+      .join("");
+  }
 
   const saleCount = priceItems.filter((item) => {
     const officialPrice = productMap[item.productId]?.officialPrice;
@@ -383,7 +468,38 @@ function bindRefresh() {
   button.addEventListener("click", () => refresh(true));
 }
 
+function bindSearch() {
+  const form = document.getElementById("search-form");
+  const input = document.getElementById("product-query");
+  if (!form || !input) {
+    return;
+  }
+  try {
+    input.value = localStorage.getItem(QUERY_KEY) || "";
+  } catch (error) {
+    input.value = "";
+  }
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    input.blur();
+    if (lastData) {
+      render(lastData);
+    }
+  });
+  input.addEventListener("input", () => {
+    try {
+      localStorage.setItem(QUERY_KEY, input.value);
+    } catch (error) {
+      /* ignore quota */
+    }
+    if (lastData) {
+      render(lastData);
+    }
+  });
+}
+
 async function boot() {
+  bindSearch();
   bindRefresh();
   await refresh(false);
   if ("serviceWorker" in navigator) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "sp-watch-v7";
+const CACHE_NAME = "sp-watch-v11";
 const SHELL = [
   "./",
   "./index.html",
