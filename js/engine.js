@@ -29,9 +29,21 @@ function cleanText(value) {
     .trim();
 }
 
+function isAggregatorName(value) {
+  return /^(다나와|에누리|네이버|네이버쇼핑|스마트스토어|11번가|g마켓|gmarket|개별몰|가격비교|검색)$/i.test(cleanText(value));
+}
+
+function isJunkLabel(value) {
+  const text = cleanText(value);
+  return !text || /image|img|가격비교|최저가|할인가|평균가|배송비|바로가기|더보기|판매처|리뷰|\[!/i.test(text);
+}
+
 function isVisibleLabel(value) {
   const text = cleanText(value);
   if (!text || text.length < 2 || text.length > 48) {
+    return false;
+  }
+  if (isAggregatorName(text) || isJunkLabel(text)) {
     return false;
   }
   if (/https?:\/\//i.test(text) || /www\./i.test(text) || /daangn|karrot|gcp-/i.test(text)) {
@@ -71,7 +83,7 @@ function parseWon(value) {
     return 0;
   }
   const price = Number(digits);
-  return price >= 1000 && price <= 200000000 ? price : 0;
+  return price >= 10000 && price <= 200000000 ? price : 0;
 }
 
 function decodeHtml(value) {
@@ -163,11 +175,21 @@ function uniqueBySeller(offers) {
 }
 
 function isShopOffer(item) {
-  return item && item.source !== "당근" && item.price > 0;
+  return item && item.source !== "당근" && item.price >= 10000 && isVisibleLabel(item.seller);
+}
+
+function saneShopOffers(offers) {
+  const valid = offers.filter(isShopOffer);
+  if (!valid.length) {
+    return [];
+  }
+  const max = Math.max(...valid.map((item) => item.price));
+  const floor = max >= 500000 ? Math.max(100000, Math.round(max * 0.15)) : 10000;
+  return valid.filter((item) => item.price >= floor);
 }
 
 function rankOffers(offers) {
-  return uniqueBySeller(offers.filter(isShopOffer))
+  return uniqueBySeller(saneShopOffers(offers))
     .sort((a, b) => {
       if (a.price !== b.price) {
         return a.price - b.price;
@@ -227,9 +249,12 @@ function pushOffer(list, offer) {
   if (!offer || !offer.price) {
     return;
   }
-  const fallback = offer.source === "당근" ? "당근 매물" : offer.source || "판매처";
+  const isUsed = offer.source === "당근";
   const title = visibleLabel(offer.title, "");
-  const seller = visibleLabel(offer.seller, title || fallback);
+  const seller = visibleLabel(offer.seller, isUsed ? title || "당근 매물" : title);
+  if (!seller || (!isUsed && (isAggregatorName(seller) || isJunkLabel(seller)))) {
+    return;
+  }
   list.push({
     title: title || seller,
     seller,
@@ -257,13 +282,44 @@ function offersFromPriceContext(text, source, defaultUrl) {
         ""
     );
     const seller = decodeHtml(
-      (chunk.match(/mall[^>]*>([^<]+)/i) || chunk.match(/판매처[^<]*>([^<]+)/) || [])[1] || title
+      (chunk.match(/mall[^>]*>([^<]+)/i) || chunk.match(/판매처[^<]*>([^<]+)/) || [])[1] || ""
     );
+    if (!seller || isAggregatorName(seller)) {
+      continue;
+    }
     pushOffer(offers, {
       title: title || seller,
-      seller: seller || title || source,
+      seller,
       price: parseWon(match[1]),
       url: href || defaultUrl,
+      source,
+    });
+  }
+  return offers;
+}
+
+function shopLinkNear(text, fallbackUrl) {
+  const urls = String(text || "").match(/https?:\/\/[^\s)\]"'<>]+/gi) || [];
+  const shop = urls.find((url) => !/danawa|enuri|shopping\.naver|img|image|karrot/i.test(url));
+  return shop || fallbackUrl;
+}
+
+function parseSellerPriceLines(text, fallbackUrl, source) {
+  const offers = [];
+  const regex = /([가-힣A-Za-z][가-힣A-Za-z0-9& ._-]{1,22})\s+([0-9]{1,3}(?:,[0-9]{3}){1,3})\s*원/g;
+  let match;
+  while ((match = regex.exec(text))) {
+    const seller = visibleLabel(match[1], "");
+    const price = parseWon(match[2]);
+    if (!seller || !price || isAggregatorName(seller) || isJunkLabel(seller)) {
+      continue;
+    }
+    const chunk = text.slice(Math.max(0, match.index - 80), match.index + 180);
+    pushOffer(offers, {
+      title: seller,
+      seller,
+      price,
+      url: shopLinkNear(chunk, fallbackUrl),
       source,
     });
   }
@@ -279,8 +335,8 @@ function parseDanawa(html, fallbackUrl) {
       [])[1];
     const title = decodeHtml((block.match(/prod_name[\s\S]{0,300}?<a[^>]*>([\s\S]*?)<\/a>/i) || [])[1] || "");
     const price = parseWon((block.match(/<strong>\s*([0-9,]+)\s*<\/strong>/i) || [])[1] || "");
-    const seller = decodeHtml((block.match(/mall_name[^>]*>([^<]+)/i) || block.match(/over_link[^>]*>([^<]+)/i) || [])[1] || "다나와");
-    if (href || price) {
+    const seller = decodeHtml((block.match(/mall_name[^>]*>([^<]+)/i) || block.match(/over_link[^>]*>([^<]+)/i) || [])[1] || "");
+    if ((href || price) && seller && !isAggregatorName(seller)) {
       pushOffer(offers, {
         title,
         seller,
@@ -290,7 +346,7 @@ function parseDanawa(html, fallbackUrl) {
       });
     }
   });
-  return offers.length ? offers : offersFromPriceContext(html, "다나와", fallbackUrl);
+  return [...offers, ...parseSellerPriceLines(html, fallbackUrl, "다나와"), ...parseDanawaMalls(html, fallbackUrl)];
 }
 
 function parseEnuri(html, fallbackUrl) {
@@ -300,7 +356,7 @@ function parseEnuri(html, fallbackUrl) {
     const href = (block.match(/href="(https?:\/\/[^"]*enuri[^"]+)"/i) || [])[1];
     const title = decodeHtml((block.match(/class="name"[^>]*>([\s\S]*?)<\/[ap]/i) || [])[1] || "");
     const price = parseWon((block.match(/([0-9]{1,3}(?:,[0-9]{3})+)\s*원/) || [])[1] || "");
-    const seller = decodeHtml((block.match(/mall[^>]*>([^<]+)/i) || [])[1] || "에누리");
+    const seller = decodeHtml((block.match(/mall[^>]*>([^<]+)/i) || [])[1] || "");
     pushOffer(offers, {
       title,
       seller,
@@ -316,7 +372,7 @@ function parseNaver(html, fallbackUrl) {
   const offers = [];
   const jsonBlocks = html.match(/mallName"\s*:\s*"([^"]+)"[\s\S]{0,240}?"price"\s*:\s*"?([0-9]+)"?/g) || [];
   jsonBlocks.forEach((block) => {
-    const seller = decodeHtml((block.match(/mallName"\s*:\s*"([^"]+)"/) || [])[1] || "네이버");
+    const seller = decodeHtml((block.match(/mallName"\s*:\s*"([^"]+)"/) || [])[1] || "");
     const price = parseWon((block.match(/price"\s*:\s*"?([0-9]+)/) || [])[1] || "");
     const title = decodeHtml((block.match(/productTitle"\s*:\s*"([^"]+)"/) || [])[1] || seller);
     const url = (block.match(/mallPcUrl"\s*:\s*"([^"]+)"/) || block.match(/crUrl"\s*:\s*"([^"]+)"/) || [])[1] || fallbackUrl;
@@ -376,18 +432,22 @@ function parseIndividualLinks(text, source) {
 
 function parseDanawaMalls(html, fallbackUrl) {
   const offers = [
-    ...parseNamedSellers(html, "개별몰", fallbackUrl),
-    ...parseIndividualLinks(html, "개별몰"),
+    ...parseNamedSellers(html, "다나와", fallbackUrl),
+    ...parseIndividualLinks(html, "다나와"),
+    ...parseSellerPriceLines(html, fallbackUrl, "다나와"),
   ];
   const json = html.matchAll(/"mallName"\s*:\s*"([^"]+)"[\s\S]{0,260}?"(?:price|minPrice)"\s*:\s*"?([0-9]+)"?/g);
   for (const item of json) {
     const around = html.slice(item.index, item.index + 320);
+    if (isAggregatorName(item[1]) || isJunkLabel(item[1])) {
+      continue;
+    }
     pushOffer(offers, {
       title: item[1],
       seller: item[1],
       price: parseWon(item[2]),
-      url: extractHttpUrl(around, "") || fallbackUrl,
-      source: "개별몰",
+      url: shopLinkNear(around, fallbackUrl),
+      source: "다나와",
     });
   }
   return offers;
@@ -488,8 +548,8 @@ async function searchProduct(query) {
   const gmarketUrl = `https://browse.gmarket.co.kr/search?keyword=${encoded}`;
   const daangnUrl = `https://www.daangn.com/kr/buy-sell/?search=${encoded}`;
 
-  const [danawa, enuri, naver, store, st11, gmarket, daangn] = await Promise.all([
-    searchSource("다나와", danawaUrl, parseDanawa),
+  const danawaTask = searchSource("다나와", danawaUrl, parseDanawa);
+  const restTask = Promise.all([
     searchSource("에누리", enuriUrl, parseEnuri),
     searchSource("네이버쇼핑", naverUrl, parseNaver),
     searchSource("스마트스토어", storeUrl, (html, url) => parseMarket(html, url, "스마트스토어")),
@@ -497,11 +557,10 @@ async function searchProduct(query) {
     searchSource("G마켓", gmarketUrl, (html, url) => parseMarket(html, url, "G마켓")),
     searchSource("당근", daangnUrl, parseDaangn),
   ]);
-
-  const firstOffers = [...danawa.offers, ...enuri.offers, ...naver.offers, ...store.offers, ...st11.offers, ...gmarket.offers];
-  const malls = danawa.html && firstOffers.length < 3
-    ? await expandDanawaSellers(danawa.html)
-    : { name: "개별몰", status: firstOffers.length ? "skipped" : "partial", offers: [], error: "" };
+  const danawa = await danawaTask;
+  const mallsTask = expandDanawaSellers(danawa.html || "");
+  const [enuri, naver, store, st11, gmarket, daangn] = await restTask;
+  const malls = await mallsTask;
 
   const shopOffers = rankOffers([
     ...malls.offers,

@@ -114,7 +114,7 @@ function renderResult(result) {
       <article class="card">
         <div class="card-kicker">신품</div>
         <h2>${escapeHtml(result.query)}</h2>
-        <p class="muted">비교사이트에서 판매처를 읽지 못했습니다. 공식 검색으로 확인할 수 있습니다.</p>
+        <p class="muted">다나와에 올라온 판매 사이트를 아직 읽지 못했습니다. 다나와에서 직접 확인할 수 있습니다.</p>
         <div class="actions">
           <a class="btn" href="${result.official.naver}" target="_blank" rel="noopener">네이버쇼핑</a>
           <a class="btn" href="${result.official.danawa}" target="_blank" rel="noopener">다나와</a>
@@ -126,7 +126,7 @@ function renderResult(result) {
       <article class="card">
         <div class="card-kicker">신품 최저가 1~${result.shops.length}위</div>
         <h2>${escapeHtml(result.query)}</h2>
-        <p class="meta">검색된 업체를 가격순으로 보여줍니다</p>
+        <p class="meta">실제 판매처 기준 · 가격순</p>
         <div class="rank-list rank-list-main">${rankRows(result.shops, result.suggested && result.suggested.url)}</div>
       </article>
     `;
